@@ -3,9 +3,18 @@
 **Group Name:** [Your Group Name]  
 **Authors:** Author 1, Author 2, Author 3
 
-Project template for "Introduction to Data Science I" at HEC Lausanne.
+Project template initially developed for ["Introduction to Data Science I"](https://unco3892.github.io/dsas/) at HEC Lausanne by [Ilia Azizi](https://iliaazizi.com/). 
 
----
+We use [Quarto](https://quarto.org/) for the template, which starts from a single [`report.qmd`](https://github.com/Unco3892/datascience-template/blob/main/report/report.qmd) file and can give several outputs:
+
+- [🌐 HTML report](https://html-preview.github.io/?url=https://github.com/Unco3892/datascience-template/blob/main/report/report.html)
+- [📑 PDF report](https://github.com/Unco3892/datascience-template/blob/main/report/report.pdf)
+- [📝 Microsoft Word report](https://github.com/Unco3892/datascience-template/raw/refs/heads/main/report/report.docx) (you can also directly edit this instead of the report.qmd)
+
+
+![How Quarto Works](report/images/qmd-how-it-works.png)
+
+⚠️<ins>**Please read the current file (`README.md`) very carefully!**</ins>⚠️
 
 ## Quick Start
 
@@ -29,7 +38,7 @@ Project template for "Introduction to Data Science I" at HEC Lausanne.
 4. **Set up project environment**
    ```bash
    # Clone your repository
-   git clone <your-repo-url>
+   git clone <your-repo-url> #e.g. https://github.com/Unco3892/datascience-template
    cd dsas_template
 
    # Create conda environment with required packages
@@ -48,8 +57,6 @@ quarto render report.qmd
 ```
 
 This generates HTML/PDF/DOCX files in the same directory.
-
----
 
 ## Project Structure
 
@@ -71,16 +78,12 @@ This generates HTML/PDF/DOCX files in the same directory.
 - Use clear comments and docstrings in `src/`
 - Each section in `report/sections/` is a separate `.qmd` file
 
----
-
 ## Essential Resources
 
 - **Terminal basics:** [Course tutorial](https://unco3892.github.io/dsas/labs/exercise_set_0.html#understanding-the-terminal)
 - **Quarto guide:** [Course tutorial](https://unco3892.github.io/dsas/labs/exercise_set_0.html#quarto)
 - **Course materials:** [unco3892.github.io/dsas](https://unco3892.github.io/dsas/)
 - **Project directives:** [Guidelines](https://unco3892.github.io/dsas/assessment/project_directives.html)
-
----
 
 ## Working with Conda Environments
 
@@ -103,8 +106,6 @@ conda env list
 
 **For detailed conda usage**, see the [course setup guide](https://unco3892.github.io/dsas/labs/exercise_set_0.html).
 
----
-
 ## Best Practices
 
 - Set random seeds for reproducibility: `np.random.seed(42)`
@@ -113,8 +114,6 @@ conda env list
 - Update `.gitignore` to exclude `.venv/` or `__pycache__/`
 - Document your code thoroughly
 - Never commit credentials or large data files
-
----
 
 ## Reproducibility Checklist
 
@@ -127,8 +126,6 @@ Your project is reproducible if anyone can:
 5. Render report: `quarto render report/report.qmd`
 
 All results should match exactly.
-
----
 
 ## Need Help?
 
