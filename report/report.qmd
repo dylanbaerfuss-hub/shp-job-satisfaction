@@ -71,7 +71,7 @@ For every result you present:
 Quality of insight > Quantity of plots. Your instructors can read plots—show them you *understand* what the data reveals.
 :::
 
-# Quarto Guide (Remove After) {.unnumbered}
+## Quarto Guide (Remove After) {.unnumbered}
 
 ::: {.callout-tip}
 ## Two Report Writing Options
