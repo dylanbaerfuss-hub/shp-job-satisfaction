@@ -9,7 +9,7 @@ We use [Quarto](https://quarto.org/) for the template, which starts from a singl
 
 - [🌐 HTML report](https://html-preview.github.io/?url=https://github.com/Unco3892/datascience-template/blob/main/report/report.html)
 - [📑 PDF report](https://github.com/Unco3892/datascience-template/blob/main/report/report.pdf)
-- [📝 Microsoft Word report](https://github.com/Unco3892/datascience-template/raw/refs/heads/main/report/report.docx) (you can also directly edit this instead of the report.qmd)
+- [📝 Microsoft Word report](https://github.com/Unco3892/datascience-template/raw/refs/heads/main/report/report.docx) (you can also directly edit this instead of the `report.qmd`)
 
 
 ![How Quarto Works](report/images/qmd-how-it-works.png)
