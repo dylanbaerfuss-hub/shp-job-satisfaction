@@ -1,77 +1,147 @@
-# Methods *(optional, only if you have models)*
+# Preliminary Analysis
 
-::: {.callout-note}
-## When to Include This Section
+## Methods and rationale
 
-Include a Methods section if you:
+We use **ordinary least squares (OLS)** regression to test whether the descriptive differences in job satisfaction are statistically distinguishable from zero. The outcome is the reported **0–10 job-satisfaction score**. OLS gives coefficients in satisfaction points, which are straightforward to interpret; it is a practical first approach rather than a claim that the bounded outcome is normally distributed. We treat occupation, age groups, sex, region of residence, employment arrangement, survey year and economic periods as categorical variables where appropriate.
 
-- Apply statistical models (linear regression, logistic regression, etc.)
-- Perform hypothesis testing
-- Use machine learning algorithms
-- Conduct advanced statistical analyses
+Respondents may appear in multiple waves, so **standard errors are clustered by respondent (`IDPERS`)** in every regression. This accounts for within-person correlation in standard errors, but does not eliminate confounding or fully incorporate the complex survey design. Models are **unweighted**; the separate survey-weight check is discussed in the Data section. All results are observational, not causal.
 
-If your project is primarily exploratory (descriptive statistics and visualizations only), you can skip this section or keep it minimal.
-:::
+### Model assumptions and checks
 
-Outline the statistical methods or models selected, along with the rationale for their selection.
+OLS assumes that the conditional mean is adequately specified, that the predictors are not perfectly collinear, and that errors are appropriately handled for inference. **Normality of the job-satisfaction scores themselves is not an OLS requirement**; however, the bounded, discrete 0–10 outcome and possible ceiling effects mean a linear model is an approximation. We have **not formally verified** residual normality, functional form or all other diagnostics, so we cannot claim that every assumption is satisfied. Coefficients should therefore be read as preliminary differences in mean satisfaction, not as precise causal effects.
 
-**Important**: Don't just show model output, **explain your choices**:
+The SHP follows individuals over time, so respondent-year observations are **not independent**. Clustering standard errors by `IDPERS` allows errors for the same respondent to be correlated across waves, but does not correct omitted-variable bias or changes in sample composition. The models use category indicators rather than treating occupation, sex or region codes as continuous quantities. The models also do not fully account for the SHP's survey sampling design; a weighted sensitivity check for descriptive trends is reported in the Data section, not as validation of these regressions. We will consider model diagnostics, survey-design sensitivity checks and within-person specifications in the final report.
 
-- **Why** did you choose this particular method?
-- **What** assumptions does it make, and do your data meet them?
-- **How** does this method help answer your research questions?
+The three tests address different questions: (1) occupational and demographic differences after adjustment; (2) changes between the year before, during and after selected events; and (3) whether occupational gaps vary across four broader periods. Joint **Wald tests** evaluate whole groups of coefficients, rather than relying on isolated comparisons.
 
 ```{python}
-#| label: initial-analysis
-
-from sklearn.linear_model import LinearRegression
+#| label: analysis-setup
+#| include: false
 import numpy as np
 import pandas as pd
-
-model = LinearRegression()
-
-# Prepare the data (using dummy variables for categorical instructor variable)
-X = np.array(pd.get_dummies(data_clean[["instructor"]], drop_first=True))
-y = np.array(data_clean["performance"])
-
-# Fit the model
-model.fit(X, y)
-
-print("=== Linear Regression Results ===")
-print(f"Coefficients: {model.coef_}")
-print(f"Intercept: {model.intercept_:.4f}")
-print(f"R-squared: {model.score(X, y):.4f}")
+import statsmodels.formula.api as smf
+from IPython.display import display
 ```
 
-::: {.callout-important}
-## Interpretation is Essential!
+## RQ1.1 — Occupation, demographics and employment arrangements
 
-After showing model results, you **must interpret them**:
+First, we compare **nine civilian occupational groups** while controlling for survey year. Armed Forces (occupation code 0) is excluded because of its very small sample. Clerical support workers (code 4) are the reference occupation.
 
-**Example interpretation:**
+```{python}
+#| label: tbl-rq11-occupation
+#| tbl-cap: "Selected occupation differences relative to clerical support workers, controlling for survey year."
+rq11_data = analysis_sample[["IDPERS", "YEAR", "OCCUPATION", "JOB_SATISFACTION"]].dropna().copy()
+rq11_data["OCCUPATION"] = pd.to_numeric(rq11_data["OCCUPATION"], errors="coerce")
+rq11_data = rq11_data[rq11_data["OCCUPATION"].isin(range(1, 10))].copy()
+rq11_data["OCCUPATION"] = rq11_data["OCCUPATION"].astype(int)
+model_rq11 = smf.ols(
+    "JOB_SATISFACTION ~ C(OCCUPATION, Treatment(reference=4)) + C(YEAR)",
+    data=rq11_data
+).fit(cov_type="cluster", cov_kwds={"groups": rq11_data["IDPERS"]})
+occ_terms = [t for t in model_rq11.params.index if t.startswith("C(OCCUPATION")]
+occ_test = model_rq11.wald_test(" = 0, ".join(occ_terms) + " = 0", scalar=True)
+selected = {1: "Managers", 2: "Professionals", 6: "Agricultural workers"}
+rows = []
+for code, name in selected.items():
+    term = next(t for t in occ_terms if f"[T.{code}]" in t)
+    rows.append({"Occupation": name, "Difference (points)": model_rq11.params[term], "p-value": model_rq11.pvalues[term]})
+display(pd.DataFrame(rows).round(4))
+print(f"N = {len(rq11_data):,}; respondent-clustered Wald chi-square({len(occ_terms)}) = {float(occ_test.statistic):.2f}; p = {float(occ_test.pvalue):.3g}; R² = {model_rq11.rsquared:.3f}")
+```
 
-"The Poisson regression model identifies three significant predictors of insurance claim frequency. Vehicle age shows a positive coefficient (β = 0.08, p < 0.01), indicating that each additional year of vehicle age increases expected claims by approximately 8%. Driver age has a negative coefficient (β = -0.02, p < 0.001), meaning older drivers file fewer claims. The urban location dummy variable (β = 0.15, p < 0.05) suggests urban drivers have 15% higher claim rates than rural drivers.
+As shown in @tbl-rq11-occupation, occupational differences are jointly significant (χ²(8) = **168.22**, p < 0.001; **124,635 observations**). Relative to clerical support workers, agricultural workers (+0.560 points), managers (+0.317) and professionals (+0.231) have higher average satisfaction after controlling for survey year. This is evidence of differences between occupational groups, not evidence that occupation itself causes satisfaction.
 
-However, the model's pseudo-R² of 0.22 indicates that these predictors explain only 22% of claim variation. Unobserved factors like driving behavior, road conditions, and individual risk tolerance likely account for the remaining variation. This suggests that while demographic variables are useful for pricing, insurers should not rely solely on them for risk assessment."
+We then include age group, sex, region of residence and employment arrangement together with occupation and survey year. The sample is smaller because employment-arrangement categories must be valid; sex is restricted to codes 1 and 2. Age under 25, managers, sex code 1, region code 1 and full-time employment are the model's reference categories.
 
-**Remember**: Model output without interpretation demonstrates technical skills but not understanding!
-:::
+```{python}
+#| label: tbl-rq11-joint-tests
+#| tbl-cap: "Joint Wald tests for groups of predictors in the adjusted RQ1.1 regression."
+rq11_full = analysis_sample[["IDPERS", "YEAR", "JOB_SATISFACTION", "OCCUPATION", "AGE", "SEX", "REGION", "EMPLOYMENT_STATUS"]].copy()
+rq11_full = rq11_full[
+    rq11_full["OCCUPATION"].isin(range(1, 10))
+    & rq11_full["EMPLOYMENT_STATUS"].isin([1, 2, 3, 5])
+    & rq11_full["SEX"].isin([1, 2])
+].dropna().copy()
+rq11_full["AGE_GROUP"] = pd.cut(
+    rq11_full["AGE"], bins=[0, 24, 34, 44, 54, 64, np.inf],
+    labels=["Under 25", "25–34", "35–44", "45–54", "55–64", "65+"], include_lowest=True
+)
+model_rq11_full = smf.ols(
+    "JOB_SATISFACTION ~ C(OCCUPATION) + C(AGE_GROUP) + C(SEX) + C(REGION) + C(EMPLOYMENT_STATUS) + C(YEAR)",
+    data=rq11_full
+).fit(cov_type="cluster", cov_kwds={"groups": rq11_full["IDPERS"]})
+joint_rows = []
+for variable, label in [("OCCUPATION", "Occupation"), ("AGE_GROUP", "Age group"), ("SEX", "Sex"), ("REGION", "Region of residence"), ("EMPLOYMENT_STATUS", "Employment arrangement")]:
+    terms = [t for t in model_rq11_full.params.index if t.startswith(f"C({variable})[")]
+    test = model_rq11_full.wald_test(" = 0, ".join(terms) + " = 0", scalar=True)
+    joint_rows.append({"Variable": label, "df": len(terms), "Wald χ²": float(test.statistic), "p-value": float(test.pvalue)})
+display(pd.DataFrame(joint_rows).round(4))
+print(f"N = {len(rq11_full):,}; respondents = {rq11_full['IDPERS'].nunique():,}; R² = {model_rq11_full.rsquared:.3f}")
+```
+
+As shown in @tbl-rq11-joint-tests, all five groups of predictors are jointly significant (each p < 0.001; **104,526 observations**, **18,363 respondents**, R² = **0.039**). For example, clerical support workers score **0.321 points lower than managers**, controlling for the included characteristics; respondents aged 65+ score **1.088 points higher than those under 25**. Part-time employment of 5–36 hours differs only slightly from full-time work (**−0.065 points**). These comparisons do not imply that every category within a variable differs significantly. We retain numeric sex codes in model interpretation until their official labels are verified.
+
+## RQ1.2 — Changes around economic events
+
+We estimate **three separate event-window regressions** comparing the year before each event with the event year and the following year: 2008–2010, 2014–2016 and 2019–2021. Each model uses respondent-clustered standard errors. These are *year-to-year comparisons*, not causal estimates of the events' effects; they do not adjust for other changes occurring at the same time.
+
+```{python}
+#| label: tbl-event-comparisons
+#| tbl-cap: "Differences in job satisfaction relative to the year before each economic event."
+events = {"2009 Financial Crisis": 2009, "2015 Swiss Franc Shock": 2015, "2020 COVID-19": 2020}
+event_rows = []
+for event_name, event_year in events.items():
+    subset = analysis_sample.loc[
+        analysis_sample["YEAR"].isin([event_year - 1, event_year, event_year + 1]),
+        ["IDPERS", "YEAR", "JOB_SATISFACTION"]
+    ].dropna().copy()
+    subset["PERIOD"] = pd.Categorical(
+        subset["YEAR"].map({event_year - 1: "Before", event_year: "During", event_year + 1: "After"}),
+        categories=["Before", "During", "After"]
+    )
+    fitted = smf.ols("JOB_SATISFACTION ~ C(PERIOD, Treatment(reference='Before'))", data=subset).fit(
+        cov_type="cluster", cov_kwds={"groups": subset["IDPERS"]}
+    )
+    for period in ["During", "After"]:
+        term = next(t for t in fitted.params.index if f"[T.{period}]" in t)
+        event_rows.append({"Event": event_name, "Comparison": f"{period} vs before", "Difference (points)": fitted.params[term], "p-value": fitted.pvalues[term], "N": len(subset)})
+display(pd.DataFrame(event_rows).round(4))
+```
+
+As shown in @tbl-event-comparisons, the **2009** event-year change is not significant (−0.034, p = 0.147), while 2010 is slightly lower than 2008 (−0.053, p = 0.026). The **2015** and **2016** comparisons are both negative and significant (−0.068 and −0.089, respectively; both p < 0.001). In **2020**, satisfaction is temporarily higher than in 2019 (+0.078, p < 0.001), but the 2021 difference is effectively zero (+0.001, p = 0.977). The magnitudes are small, and the 2009 after-year result warrants particular caution given multiple comparisons.
+
+## RQ1.3 — Occupation × economic period
+
+We test whether occupational differences change across **2004–2008, 2009–2014, 2015–2019 and 2020–2024**. The model includes occupation, economic period and their interaction. A joint Wald test assesses whether all **24 interaction coefficients** are zero. Managers and 2004–2008 are the reference categories.
+
+```{python}
+#| label: tbl-rq13-interaction
+#| tbl-cap: "Selected occupation-by-period interaction coefficients relative to managers and 2004–2008."
+rq13_data = analysis_sample[["IDPERS", "YEAR", "OCCUPATION", "JOB_SATISFACTION"]].dropna().copy()
+rq13_data = rq13_data[rq13_data["OCCUPATION"].isin(range(1, 10))].copy()
+rq13_data["OCCUPATION"] = rq13_data["OCCUPATION"].astype(int)
+rq13_data["ECONOMIC_PERIOD"] = pd.cut(
+    rq13_data["YEAR"], bins=[2003, 2008, 2014, 2019, 2024],
+    labels=["2004–2008", "2009–2014", "2015–2019", "2020–2024"]
+)
+model_rq13 = smf.ols(
+    "JOB_SATISFACTION ~ C(OCCUPATION) * C(ECONOMIC_PERIOD)", data=rq13_data
+).fit(cov_type="cluster", cov_kwds={"groups": rq13_data["IDPERS"]})
+interaction_terms = [t for t in model_rq13.params.index if ":" in t]
+interaction_test = model_rq13.wald_test(" = 0, ".join(interaction_terms) + " = 0", scalar=True)
+selected_interactions = {2: "Professionals", 3: "Technicians", 5: "Service and sales"}
+interaction_rows = []
+for code, name in selected_interactions.items():
+    term = next(t for t in interaction_terms if f"[T.{code}]" in t and "[T.2020–2024]" in t)
+    interaction_rows.append({"Occupation": name, "Interaction (points)": model_rq13.params[term], "p-value": model_rq13.pvalues[term]})
+display(pd.DataFrame(interaction_rows).round(4))
+print(f"N = {len(rq13_data):,}; respondents = {rq13_data['IDPERS'].nunique():,}; Wald chi-square({len(interaction_terms)}) = {float(interaction_test.statistic):.2f}; p = {float(interaction_test.pvalue):.4f}; R² = {model_rq13.rsquared:.3f}")
+```
+
+As shown in @tbl-rq13-interaction, the joint interaction is statistically significant (**χ²(24) = 45.88, p = 0.0046**; **124,635 observations**, R² = **0.009**). Thus, occupational gaps are not completely stable across periods. In 2020–2024, the gap relative to managers is lower than in 2004–2008 for professionals (−0.190), technicians (−0.161) and service and sales workers (−0.174). These are **changes in relative occupational gaps**, not absolute changes in those groups' satisfaction. Individual interaction p-values should be interpreted cautiously because many comparisons were tested.
 
 # Findings and Discussion
 
-Provide your results or observations from applying statistical methods, then **discuss them thoroughly** in the context of your research questions and project goals.
+Taken together, the results in @tbl-rq11-joint-tests, @tbl-event-comparisons and @tbl-rq13-interaction support three preliminary conclusions. **First**, occupational, demographic, regional and employment-arrangement differences are detectable, but the adjusted model explains only a small fraction of individual satisfaction variation. **Second**, the three event windows show different patterns, including a small temporary rise in 2020 rather than a uniform decline during crises. **Third**, occupational differences vary across broader economic periods, particularly in comparisons with managers in 2020–2024.
 
-::: {.callout-tip}
-## Structure Your Discussion
-
-A good discussion:
-
-1. **States the finding** clearly (reference tables/figures)
-2. **Interprets the result** (what does it mean?)
-3. **Connects to research questions** (how does it answer your questions?)
-4. **Relates to domain knowledge** (does it align with theory or prior research?)
-5. **Acknowledges limitations** (what are the caveats?)
-6. **Suggests implications** (what should we do with this information?)
-
-**Example**: "Our regression analysis shows that experience significantly predicts performance (β = 0.01, p < 0.001), supporting our hypothesis that skill develops over time. This aligns with learning curve theory in organizational psychology and suggests that training programs should emphasize sustained practice. However, the wide confidence interval (95% CI: [0.005, 0.015]) indicates substantial individual variation, meaning experience alone cannot guarantee high performance."
-:::
+For management, these findings suggest that employee satisfaction is not uniform across worker groups or periods. However, the observed differences are generally modest and should not be treated as a basis for causal claims or direct policy prescriptions. Limitations include **unweighted regressions**, **changing sample composition**, **unobserved characteristics**, **multiple hypothesis tests**, **bounded satisfaction scores**, and incomplete incorporation of the survey's complex design. Further robustness work could assess weighted models, alternative event windows and within-person changes. The Conclusion section summarises progress and next steps for the final report.

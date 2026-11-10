@@ -1,226 +1,90 @@
 # Data
 
 ## Sources
-Describe the sources of your data, such as public datasets, API collections, or scraped data. 
 
-::: {.callout-important}
-## Data Source Documentation
+Our primary data source is the **Swiss Household Panel (SHP)**, *Living in Switzerland Waves 1–26 + Long file + Beta version Wave 27*, Version 12.0, published by FORS and distributed through SWISSUbase [@shp2026]. The version-specific dataset DOI is [10.48573/haxy-c230](https://doi.org/10.48573/haxy-c230); the canonical DOI is [10.48573/pjmf-8s41](https://doi.org/10.48573/pjmf-8s41). Access for this educational research project was approved on **19 October 2026**. We used the SAS files from the release, excluding the beta Wave 27.
 
-Always include the **URL** where the data can be accessed. This is essential for reproducibility and evaluation. For example "Data source: [Kaggle Insurance Dataset](https://www.kaggle.com/datasets/example)"". Also mention when the data was accessed.
-:::
+Although the release contains waves dating back to 1999, our analysis covers **2004–2024 (21 annual waves)** because the general job-satisfaction measure is unavailable in several earlier years. We combined annual individual and household records to study employed respondents across Switzerland. The underlying microdata are access-controlled; we do not redistribute them with the report.
 
 ## Description
-Summarize the main features of the dataset, including the types of variables, their formats, and any relevant metadata.
 
-::: {.callout-note}
-## Dataset Overview Template
+Our preparation process produced three related datasets:
 
-Provide a clear summary:
+| Dataset | Respondent-year observations | Unique respondents | Purpose |
+|---|---:|---:|---|
+| Full dataset | 305,462 | 45,632 | Harmonised individual and household records |
+| Employed sample | 124,769 | 22,265 | Employed respondents with valid occupation and job satisfaction |
+| Analysis sample | 124,766 | — | Employed sample excluding missing age or sex |
 
-- **Number of observations**: X rows
-- **Number of variables**: Y columns
-- **Time period**: Start date to end date
-- **Geographic coverage**: Region/Country
-- **Key variables**: List the most important variables for your analysis
-:::
+The **full dataset has 10 standardised variables**: `IDPERS` (respondent identifier), `IDHOUS` (household identifier), `YEAR`, `AGE`, `SEX`, `EMPLOYMENT_STATUS`, `WORKING_STATUS`, `OCCUPATION`, `JOB_SATISFACTION` and `REGION`. Job satisfaction is measured on a **0–10 scale**; occupation is grouped using ISCO major groups; `REGION` describes **region of residence**, not necessarily the region of employment. Employment arrangements are analysed separately from the employment-status filter.
+
+Each row represents a respondent in a particular survey year. Since individuals can appear in multiple waves, the number of rows is larger than the number of distinct respondents. The sample also varies across years and occupational groups, which matters when comparing means.
 
 ## Loading Data
 
-::: {.callout-tip}
-## Loading Data Best Practices
+We initially read annual SAS files using Python and `pyreadstat`, selected the relevant columns and merged individual and household information. We then saved the harmonised datasets as CSV files under `data/processed/`, so the report can use the prepared data without rerunning the entire raw-data pipeline [@mckinney2022python; @pandasdocs].
 
-1. **Use relative paths** via `project_root` for reproducibility
-2. **Check data types** after loading
-3. **Inspect the first few rows** to verify correct loading
-4. **Document any loading parameters** (e.g., encoding, delimiter)
-
-**Important**: Do not change the data loading approach shown below. The template uses `project_root` from the setup chunk to ensure your code works regardless of where the report is run from.
-:::
+The following chunk loads the processed files using paths relative to the project root. It requires the three CSV files exported by `01_data_preparation.ipynb` to be present in `data/processed/`.
 
 ```{python}
 #| label: load-data
-# Code visibility controlled by format settings in report.qmd
-#| output: true
-
-"""Example of loading data using pandas with proper path handling."""
-
 import pandas as pd
 from IPython.display import display
-from quarto_runtime import project_root
+from pathlib import Path
 
-# Define the path to raw data using project_root
-# This ensures the code works regardless of where it's run from
-raw_data_path = project_root / "data" / "raw" / "data_raw.csv"
+project_root = Path.cwd().resolve()
 
-# Load the data
-data = pd.read_csv(raw_data_path, skipinitialspace=True)
+if not (project_root / "data" / "processed").is_dir():
+    project_root = project_root.parent
 
-# Basic data inspection
-print(f"Dataset shape: {data.shape[0]} rows × {data.shape[1]} columns")
-print(f"\nColumn names: {list(data.columns)}")
-print(f"\nData types:\n{data.dtypes}")
+processed_dir = project_root / "data" / "processed"
+full_dataset = pd.read_csv(processed_dir / "full_dataset.csv")
+employed_sample = pd.read_csv(processed_dir / "employed_sample.csv")
+analysis_sample = pd.read_csv(processed_dir / "analysis_sample.csv")
 
-# Display first few rows
-print("\nFirst 5 rows:")
-display(data.head())
+sample_overview = pd.DataFrame({
+    "Dataset": ["Full dataset", "Employed sample", "Analysis sample"],
+    "Observations": [len(full_dataset), len(employed_sample), len(analysis_sample)],
+    "Variables": [full_dataset.shape[1], employed_sample.shape[1], analysis_sample.shape[1]],
+})
+display(sample_overview)
 ```
-
-::: {.callout-tip}
-## Alternative Data Sources
-
-Depending on your project, you might load data from:
-
-- **CSV files**: `pd.read_csv(filepath)`
-- **Excel files**: `pd.read_excel(filepath, sheet_name='Sheet1')`
-- **JSON files**: `pd.read_json(filepath)`
-- **APIs**: Using `requests` library + `pd.DataFrame(data)`
-- **Databases**: Using `pd.read_sql(query, connection)`
-- **Web scraping**: Using `beautifulsoup4` or `scrapy`
-
-Always document your data acquisition process!
-:::
 
 ## Wrangling
 
 ### General Transformations
-Document the data preprocessing steps taken, including cleaning, transformation, and any merging of datasets.
 
-::: {.callout-caution}
-## Document Your Transformations
+We first inspected the available variables and their coding in the annual SHP files, testing the preparation procedure on individual waves before automating it for **2004–2024**. For each wave, we selected the relevant individual and household variables, converted invalid survey codes to missing values, harmonised column names, merged the files using their appropriate identifiers and added the survey year. The annual datasets were then concatenated into a single dataset.
 
-Every transformation should be:
-
-1. **Justified**: Explain why it's needed
-2. **Documented**: Clear code comments
-3. **Reproducible**: Can be run from scratch
-4. **Validated**: Check the results make sense
-:::
+For the employed sample, we retained respondents with **`WORKING_STATUS == 1`**, a valid occupation code (ISCO major groups 0–9) and a job-satisfaction score from 0 to 10. We did **not** use `EMPLOYMENT_STATUS` as the employment filter: that variable is retained for comparisons of employment arrangements. The smaller analysis sample additionally excludes the **two missing age values and one missing sex value** in the employed sample. For some regressions, further complete-case restrictions apply; their sample sizes are reported in the Analysis section.
 
 ### Spotting Mistakes and Missing Data
-Discuss any identified mistakes or issues with missing data and describe your approach to handling them.
 
-::: {.callout-warning}
-## Missing Data Strategies
+We checked identifiers, survey-year coverage, duplicates and missing values after combining the annual files. The full dataset contains **no duplicate respondent-year combinations**, and respondent ID, survey year, household ID and region are complete.
 
-Different approaches for different situations:
+| Variable | Missing observations in full dataset |
+|---|---:|
+| Age | 232 |
+| Sex | 4 |
+| Employment status | 1,003 |
+| Occupation | 180,252 |
+| Job satisfaction | 178,161 |
 
-- **Deletion**: Remove rows/columns with missing values (when few missing)
-- **Imputation**: Fill with mean, median, mode, or advanced methods
-- **Flagging**: Create indicator variables for missingness
-- **Model-based**: Use algorithms that handle missing values
-
-**Document your choice** and justify why it's appropriate for your data!
-:::
+The high missingness in occupation and job satisfaction partly reflects the inclusion of non-employed respondents in the full dataset. Rather than imputing these central research variables, we restrict the employed sample to observations with valid occupation and job-satisfaction values. This ensures the outcomes and occupational categories being compared are observed, although exclusions may affect representativeness.
 
 ### Listing Anomalies and Outliers
-Identify any anomalies or outliers discovered, along with your approach to assessing their impact.
 
-::: {.callout-tip}
-## Outlier Detection Methods
+We checked the survey's special missing-value codes and the permitted ranges of key variables. **Valid job-satisfaction scores from 0 to 10 were retained**, including low and high responses; these are meaningful values rather than outliers to remove. The Armed Forces occupation group (ISCO 0) is present but small (**131 observations** in the demographic analysis sample), so it is excluded from the civilian-occupation regressions and some comparative figures. We also checked for duplicate respondent-year records and found none.
 
-- **Visual inspection**: Box plots, scatter plots
-- **Statistical methods**: Z-scores, IQR method
-- **Domain knowledge**: What values are impossible or implausible?
+### Survey Weights and Comparability
 
-Remember: Not all outliers should be removed! They might be:
+The SHP provides annual individual cross-sectional survey weights for all 21 analysed years. We matched these to the employed sample by respondent ID and year. **121,547 of 124,769 observations (97.42%)** have positive weights; **3,222** have zero or negative weight codes and were excluded from weighted calculations.
 
-- **Errors**: Data entry mistakes (should be corrected/removed)
-- **Valid extremes**: Real but unusual observations (should be kept)
-- **Key insights**: The most interesting part of your data!
-:::
+| Annual mean job satisfaction | 2004 | 2024 | Change |
+|---|---:|---:|---:|
+| Unweighted | 8.212 | 7.815 | −0.397 |
+| Weighted | 8.207 | 7.711 | −0.496 |
 
-```{python}
-#| label: data-cleaning
-# Code visibility controlled by format settings in report.qmd
-#| output: true
+Both comparisons indicate a decline over the period. We retain unweighted results for the main exploratory analysis and use weighted annual means as a robustness comparison. The weights were not adjusted specifically for the employed subgroup, and these calculations do not implement the full complex survey design. Similarly, repeated observations of the same respondents require care in formal statistical testing; the preliminary regressions use respondent-clustered standard errors.
 
-"""Example of data cleaning with pandas - proper transformations."""
-
-import pandas as pd
-import numpy as np
-from IPython.display import display
-from quarto_runtime import project_root
-
-# Load raw data using the same approach as above
-raw_data = project_root / "data" / "raw" / "data_raw.csv"
-data = pd.read_csv(raw_data, skipinitialspace=True)
-
-# Clean column names (lowercase, remove spaces)
-data.columns = data.columns.str.strip().str.lower()
-
-# Check for missing values
-print("Missing values per column:")
-print(data.isnull().sum())
-
-# Data cleaning pipeline
-data_clean = (
-    data
-    # Remove rows with critical missing values
-    .dropna(subset=["behavior", "performance"])
-    # Convert categorical variables
-    .assign(
-        behavior=lambda df: df["behavior"].astype("category"),
-        instructor=lambda df: df["instructor"].astype("category"),
-    )
-    # Ensure numeric columns are proper type
-    .assign(
-        performance=lambda df: pd.to_numeric(df["performance"], errors='coerce')
-    )
-)
-
-print(f"\nOriginal data shape: {data.shape}")
-print(f"Cleaned data shape: {data_clean.shape}")
-print(f"Rows removed: {data.shape[0] - data_clean.shape[0]}")
-
-# Display cleaned data summary
-print("\nCleaned data summary:")
-display(data_clean.describe(include='all'))
-
-# Save cleaned data for later use (using project_root path)
-processed_path = project_root / "data" / "processed" / "data_processed.csv"
-data_clean.to_csv(processed_path, index=False)
-```
-
-After cleaning, our dataset contains **`{python} data_clean.shape[0]` observations** across **`{python} data_clean.shape[1]` variables**. We removed **`{python} data.shape[0] - data_clean.shape[0]` rows** due to missing values in critical variables.
-
-::: {.callout-tip}
-## Inline Code for Dynamic Results
-
-Notice the inline code in the paragraph above uses Python expressions wrapped in backticks with `{python}` prefix to insert computed values directly into your text. This ensures your narrative automatically updates when data changes.
-
-**Working examples in this document:**
-
-- The mean performance score is `{python} f'{data_clean["performance"].mean():.3f}'`
-- We analyzed data from `{python} data_clean['instructor'].nunique()` different instructors
-
-**To use inline code:** Write your Python expression between backticks with the {python} prefix, like this (without the backslashes): `\{python\} your_expression_here`
-
-This is better than hard-coding numbers, which can become outdated if you update your data!
-:::
-
-::: {.callout-important}
-## Don't Forget to Interpret!
-
-After showing your data cleaning code, **explain your decisions**:
-
-- **Why** did you remove certain rows or handle missing values this way?
-- **What** impact do these choices have on your analysis?
-- **How** do your cleaning decisions align with your research questions?
-
-Example: "We removed rows with missing performance scores (N=15, 7.5% of data) because these are our primary outcome variable and cannot be reliably imputed. This minimal data loss is acceptable and preserves the integrity of our performance analysis."
-:::
-
-::: {.callout-note}
-## Data Cleaning Checklist
-
-Before moving to analysis, verify:
-
-- ✓ All column names are clean and consistent
-- ✓ Data types are appropriate for each variable
-- ✓ Missing values are identified and handled
-- ✓ Outliers are investigated and documented
-- ✓ Categorical variables are properly encoded
-- ✓ Duplicate rows are checked and removed if needed
-- ✓ Date/time variables are in proper format
-- ✓ Cleaned data is saved for reproducibility
-:::
+The complete data preparation and validation code is retained in `01_data_preparation.ipynb`; this update report presents the essential decisions and checks rather than reproducing every processing step.

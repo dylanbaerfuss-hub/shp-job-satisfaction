@@ -1,380 +1,203 @@
-# EDA
+# Exploratory Data Analysis (EDA)
 
-::: {.callout-tip}
-## Exploratory Data Analysis (EDA) Purpose
-
-The goal of EDA is to:
-
-1. **Understand** the structure and patterns in your data
-2. **Identify** relationships between variables
-3. **Detect** anomalies, outliers, and data quality issues
-4. **Generate** hypotheses for further analysis
-5. **Choose** appropriate statistical methods
-
-Good EDA combines **visualizations** + **summary statistics** + **domain knowledge**.
-:::
-
-::: {.callout-important}
-## Interpretation is Key!
-
-**Creating plots is only half the work.** The most important part of EDA is **interpreting** what your visualizations reveal about the data.
-
-For **every plot** you create, you must:
-
-- **Describe** what the plot shows (patterns, trends, distributions)
-- **Explain** why these patterns matter for your research questions
-- **Connect** findings to your project goals and domain context
-- **Justify** subsequent analysis decisions based on these insights
-
-**A plot without interpretation is meaningless.** Your grade depends heavily on the quality of your interpretations, not just the number of plots you create.
-:::
+We examine the distribution of job satisfaction, its development from 2004 to 2024, and differences across occupations, demographic groups, employment arrangements and economic periods. All figures use **unweighted respondent-year observations** from the employed sample unless otherwise stated. Because respondents can appear in several years, these plots describe the sample rather than independent individuals. Statistical tests are discussed separately in the Analysis section.
 
 ## Univariate Analysis
 
-Examine each variable individually to understand its distribution, central tendency, and spread.
-
-::: {.panel-tabset}
-
-## Distribution Plot
+### Distribution of job satisfaction
 
 ```{python}
-#| label: fig-performance-dist
-#| fig-cap: "Distribution of performance scores showing approximately normal distribution"
-# Code visibility controlled by format settings in report.qmd
-
+#| label: fig-job-satisfaction-distribution
+#| fig-cap: "Distribution of reported job satisfaction among employed respondents, 2004–2024."
+import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import pandas as pd
-import numpy as np
+from IPython.display import display
 
-# Set publication-quality style
-sns.set_theme(style="whitegrid", context="notebook", 
-              palette="colorblind", font_scale=1.1)
-
-# Create dummy data for demonstration
-np.random.seed(42)
-dummy_performance = pd.DataFrame({
-    "instructor": np.random.choice(["Ilia", "Jane", "John"], size=200),
-    "performance": np.random.normal(0.90, 0.05, size=200).clip(0, 1)
-})
-
-# Create figure
-fig, ax = plt.subplots(figsize=(8, 5))
-
-# Histogram with KDE
-sns.histplot(data=dummy_performance, x="performance", kde=True, 
-             bins=30, color='steelblue', alpha=0.6, ax=ax,
-             edgecolor='black', linewidth=0.5)
-
-# Customize plot
-ax.set_title("Distribution of Student Performance Scores", 
-             fontsize=14, fontweight='bold', pad=15)
-ax.set_xlabel("Performance Score", fontsize=12)
-ax.set_ylabel("Frequency", fontsize=12)
-ax.grid(True, alpha=0.3, linestyle='--')
-
-# Add mean line
-mean_perf = dummy_performance["performance"].mean()
-ax.axvline(mean_perf, color='red', linestyle='--', linewidth=2, 
-           label=f'Mean = {mean_perf:.3f}')
-ax.legend(fontsize=10)
-
+sns.set_theme(style="whitegrid")
+fig, ax = plt.subplots(figsize=(8, 4.5))
+scores = employed_sample["JOB_SATISFACTION"].dropna()
+ax.hist(scores, bins=np.arange(-0.5, 11.5, 1), edgecolor="white")
+ax.axvline(scores.mean(), linestyle="--", color="black", label=f"Mean: {scores.mean():.2f}")
+ax.set(xlabel="Job satisfaction (0–10)", ylabel="Respondent-year observations", xticks=range(11))
+ax.legend()
 plt.tight_layout()
 plt.show()
 ```
 
-## Summary Statistics
+As shown in @fig-job-satisfaction-distribution, job satisfaction is concentrated toward the upper end of the 0–10 scale, with a median of **8**. The distribution is not symmetric: relatively few respondents report very low satisfaction. For this reason, we examine both the mean and the percentage reporting **low satisfaction (0–5)** rather than relying on the mean alone.
+
+### Summary statistics and potential outliers
 
 ```{python}
-#| label: tbl-summary-stats
-#| tbl-cap: "Summary statistics for performance scores"
-# Code visibility controlled by format settings in report.qmd
-
-# Display comprehensive summary statistics
-summary_stats = dummy_performance["performance"].describe()
-print("\n=== Performance Summary Statistics ===")
-print(summary_stats.to_string())
-
-# Additional statistics
-print(f"\nSkewness: {dummy_performance['performance'].skew():.3f}")
-print(f"Kurtosis: {dummy_performance['performance'].kurtosis():.3f}")
+#| label: tbl-eda-summary-statistics
+#| tbl-cap: "Descriptive statistics for job satisfaction and age in the employed analysis sample."
+summary_stats = analysis_sample[["JOB_SATISFACTION", "AGE"]].agg(
+    ["count", "mean", "std", "median", "min", "max"]
+).T.rename(columns={"count": "N", "mean": "Mean", "std": "SD", "median": "Median", "min": "Minimum", "max": "Maximum"})
+display(summary_stats.round(2))
 ```
 
-## Box Plot
-
 ```{python}
-#| label: fig-performance-box
-#| fig-cap: "Box plot showing the five-number summary and outliers"
-# Code visibility controlled by format settings in report.qmd
-
-fig, ax = plt.subplots(figsize=(6, 4))
-
-# Box plot
-bp = ax.boxplot(dummy_performance["performance"], vert=True, patch_artist=True,
-                labels=["Performance"],
-                boxprops=dict(facecolor='lightblue', edgecolor='black', linewidth=1.5),
-                medianprops=dict(color='red', linewidth=2),
-                whiskerprops=dict(color='black', linewidth=1.5),
-                capprops=dict(color='black', linewidth=1.5))
-
-ax.set_title("Performance Score Distribution (Box Plot)", 
-             fontsize=13, fontweight='bold', pad=15)
-ax.set_ylabel("Performance Score", fontsize=11)
-ax.grid(True, axis='y', alpha=0.3, linestyle='--')
-
+#| label: fig-job-satisfaction-box
+#| fig-cap: "Box plot of job satisfaction scores (0–10); extreme responses are retained as valid survey answers."
+fig, ax = plt.subplots(figsize=(7, 3.3))
+sns.boxplot(x=scores, ax=ax, color="lightsteelblue")
+ax.set(xlabel="Job satisfaction (0–10)", xlim=(-0.5, 10.5), xticks=range(11))
 plt.tight_layout()
 plt.show()
 ```
 
-:::
+@tbl-eda-summary-statistics reports the central tendency and spread of the two continuous variables used in the project. The distribution in @fig-job-satisfaction-box is bounded by the questionnaire's 0–10 scale and is concentrated toward high satisfaction. Values at the low end can appear as statistical outliers in a box plot, but **they are valid survey responses, not data errors**, so we do not remove them. The bounded, uneven distribution also motivates reporting medians and the low-satisfaction share alongside means. The subsequent regressions use respondent-clustered standard errors because individuals can contribute several observations.
 
 ## Bivariate Analysis
 
-Explore relationships between two variables. 
-
-Our univariate analysis in @fig-performance-dist revealed that performance scores follow an approximately normal distribution with a mean of 0.90. The box plot (@fig-performance-box) confirmed this finding and helped identify a few outliers at the lower end of the distribution.
-
-::: {.callout-tip}
-## How to Reference Figures
-
-Use `@fig-label` syntax to reference figures in your text. Quarto automatically numbers them and creates clickable links.
-
-**Examples with figures in this template:**
-
-- `@fig-performance-dist` → See @fig-performance-dist for details
-- `@fig-correlation-matrix` → As shown in @fig-correlation-matrix
-- `@tbl-anova-test` → The ANOVA results in @tbl-anova-test
-
-**Why reference figures?**
-
-1. Automatic numbering (updates if you reorder)
-2. Clickable links in HTML output
-3. Professional academic writing standard
-4. Helps readers find the relevant visualization
-
-**Example usage in text:**
-
-"The distribution shown in @fig-performance-dist indicates..."
-
-"As seen in @fig-correlation-matrix, there is a strong positive correlation..."
-:::
-
-Now let's examine how performance varies across different instructors.
-
-::: {.panel-tabset}
-
-## Grouped Comparison
+### Overall trend in job satisfaction
 
 ```{python}
-#| label: fig-performance-by-instructor
-#| fig-cap: "Performance scores grouped by instructor showing variation across instructors"
-# Code visibility controlled by format settings in report.qmd
+#| label: fig-annual-satisfaction
+#| fig-cap: "Annual unweighted mean job satisfaction, 2004–2024."
+annual = (employed_sample.assign(LOW_SAT=employed_sample["JOB_SATISFACTION"].le(5))
+          .groupby("YEAR", as_index=False)
+          .agg(mean_satisfaction=("JOB_SATISFACTION", "mean"),
+               low_satisfaction=("LOW_SAT", "mean")))
+fig, ax = plt.subplots(figsize=(9, 4.5))
+ax.plot(annual["YEAR"], annual["mean_satisfaction"], marker="o", markersize=3)
+ax.set(xlabel="Survey year", ylabel="Mean satisfaction (0–10)")
+ax.set_xticks([2004, 2008, 2012, 2016, 2020, 2024])
+plt.tight_layout()
+plt.show()
+display(annual.loc[annual["YEAR"].isin([2004, 2024])].round(3))
+```
 
-fig, ax = plt.subplots(figsize=(8, 5))
+As shown in @fig-annual-satisfaction, the unweighted mean fell from **8.212 in 2004** to **7.815 in 2024**, a decline of **0.397 points**. The percentage reporting low satisfaction rose from **6.27%** to **7.56%**. These are descriptive trends and may partly reflect changes in the respondents included each year.
 
-# Violin plot with individual points
-sns.violinplot(data=dummy_performance, x="instructor", y="performance", 
-               ax=ax, inner="box", palette="Set2", linewidth=1.5,
-               edgecolor='black')
+### Occupational differences (RQ1.1)
 
-# Overlay individual points
-sns.swarmplot(data=dummy_performance, x="instructor", y="performance", 
-              ax=ax, color='black', alpha=0.3, size=3)
-
-# Customize
-ax.set_title("Performance Scores by Instructor", 
-             fontsize=14, fontweight='bold', pad=15)
-ax.set_xlabel("Instructor", fontsize=12)
-ax.set_ylabel("Performance Score", fontsize=12)
-ax.grid(True, axis='y', alpha=0.3, linestyle='--')
-
+```{python}
+#| label: fig-occupation-satisfaction
+#| fig-cap: "Mean job satisfaction by civilian occupational group, pooled across 2004–2024."
+occupation_labels = {
+    1: "Managers", 2: "Professionals", 3: "Technicians", 4: "Clerical support",
+    5: "Service and sales", 6: "Agricultural", 7: "Craft workers",
+    8: "Machine operators", 9: "Elementary occupations"
+}
+occ = employed_sample.loc[employed_sample["OCCUPATION"].isin(occupation_labels)].copy()
+occ["Occupation"] = occ["OCCUPATION"].map(occupation_labels)
+occ_summary = (occ.groupby("Occupation")["JOB_SATISFACTION"]
+               .agg(["mean", "count"]).sort_values("mean"))
+fig, ax = plt.subplots(figsize=(9, 5))
+ax.barh(occ_summary.index, occ_summary["mean"])
+ax.set(xlabel="Mean satisfaction (0–10)", ylabel="")
+ax.set_xlim(0, 10)
 plt.tight_layout()
 plt.show()
 ```
 
-## Statistical Test
+As shown in @fig-occupation-satisfaction, average satisfaction differs across occupational groups. Agricultural workers have the highest pooled average, while clerical support workers have the lowest among the nine civilian groups. We exclude Armed Forces (ISCO 0) from this comparison because of its small sample. Differences in occupation may overlap with age, region and employment arrangements; the Analysis section tests adjusted associations.
+
+### Demographic and employment differences (RQ1.1)
 
 ```{python}
-#| label: tbl-anova-test
-#| tbl-cap: "ANOVA test results for performance differences across instructors"
-# Code visibility controlled by format settings in report.qmd
-
-from scipy import stats
-
-# Group data by instructor
-groups = [group["performance"].values 
-          for name, group in dummy_performance.groupby("instructor")]
-
-# Perform ANOVA
-f_stat, p_value = stats.f_oneway(*groups)
-
-print("\n=== ANOVA Test Results ===")
-print(f"F-statistic: {f_stat:.4f}")
-print(f"P-value: {p_value:.4f}")
-print(f"\nInterpretation: {'Significant' if p_value < 0.05 else 'Not significant'} difference at α=0.05")
-
-# Group means
-print("\n=== Group Means ===")
-print(dummy_performance.groupby("instructor")["performance"].mean().to_string())
-```
-
-:::
-
-::: {.callout-important}
-## Plot Quality Requirements
-
-Every plot in your report should have:
-
-✓ **Clear title** that explains what's being shown  
-✓ **Labeled axes** with units when applicable  
-✓ **Legend** if multiple groups/series are shown  
-✓ **Appropriate color scheme** (colorblind-friendly)  
-✓ **Proper sizing** (readable text, not too small/large)  
-✓ **Figure caption** using `fig-cap` option  
-
-**Poor plots = Poor grades!** Take time to make your visualizations publication-quality.
-:::
-
-## Correlation Analysis
-
-::: {.panel-tabset}
-
-## Correlation Heatmap
-
-```{python}
-#| label: fig-correlation-matrix
-#| fig-cap: "Correlation matrix showing relationships between numeric variables"
-# Code visibility controlled by format settings in report.qmd
-
-# Create dummy dataset with multiple numeric variables
-np.random.seed(42)
-n = 200
-dummy_data = pd.DataFrame({
-    'Age': np.random.randint(20, 60, n),
-    'Experience': np.random.randint(0, 30, n),
-    'Performance': np.random.normal(0.85, 0.1, n).clip(0, 1),
-    'Salary': np.random.normal(60000, 20000, n)
+#| label: tbl-demographic-satisfaction
+#| tbl-cap: "Mean job satisfaction by age group, sex and employment arrangement."
+eda_demo = analysis_sample.copy()
+eda_demo["Age group"] = pd.cut(
+    eda_demo["AGE"], bins=[0, 24, 34, 44, 54, 64, np.inf],
+    labels=["Under 25", "25–34", "35–44", "45–54", "55–64", "65+"],
+    include_lowest=True
+)
+eda_demo["Sex"] = eda_demo["SEX"].map({1: "Men", 2: "Women"})
+eda_demo["Employment arrangement"] = eda_demo["EMPLOYMENT_STATUS"].map({
+    1: "Full-time (37+ hours)", 2: "Part-time (5–36 hours)",
+    3: "Part-time (1–4 hours)", 5: "Family business"
 })
-
-# Add some correlations
-dummy_data['Salary'] = 40000 + dummy_data['Experience'] * 1000 + np.random.normal(0, 5000, n)
-dummy_data['Performance'] = 0.6 + dummy_data['Experience'] * 0.01 + np.random.normal(0, 0.1, n)
-dummy_data['Performance'] = dummy_data['Performance'].clip(0, 1)
-
-# Calculate correlation matrix
-corr_matrix = dummy_data.corr()
-
-# Create heatmap
-fig, ax = plt.subplots(figsize=(7, 6))
-sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', center=0,
-            square=True, linewidths=1, cbar_kws={"shrink": 0.8},
-            fmt='.3f', ax=ax, vmin=-1, vmax=1)
-
-ax.set_title("Correlation Matrix of Numeric Variables", 
-             fontsize=14, fontweight='bold', pad=15)
-
-plt.tight_layout()
-plt.show()
+for label in ["Age group", "Sex", "Employment arrangement"]:
+    summary = (eda_demo.dropna(subset=[label])
+               .groupby(label, observed=True)["JOB_SATISFACTION"]
+               .agg(Observations="count", Mean="mean"))
+    print(f"\n{label}")
+    display(summary.round(3))
 ```
 
-## Scatter Plot
+The group summaries in @tbl-demographic-satisfaction show that satisfaction generally increases in older age groups, although these are comparisons across respondents, not evidence that aging causes higher satisfaction. Women report a slightly higher pooled mean than men. Very short part-time work and family-business work show higher unadjusted averages than full-time work, but their sample sizes are much smaller. The employment-arrangement comparison includes only records with the relevant valid categories. **Region is region of residence**, not necessarily workplace location. The regional descriptive comparison is shown next, with adjusted associations reported in the Analysis section.
+
+### Regional differences (RQ1.1)
 
 ```{python}
-#| label: fig-scatter-experience-performance
-#| fig-cap: "Scatter plot showing positive relationship between experience and performance"
-# Code visibility controlled by format settings in report.qmd
+#| label: fig-region-satisfaction
+#| fig-cap: "Mean job satisfaction by region of residence, 2004–2024 (unweighted)."
+region_labels = {
+    1: "Lake Geneva", 2: "Espace Mittelland", 3: "Northwestern Switzerland",
+    4: "Zurich", 5: "Eastern Switzerland", 6: "Central Switzerland",
+    7: "Ticino"
+}
+region_data = employed_sample.loc[employed_sample["REGION"].isin(region_labels)].copy()
+region_data["Region"] = region_data["REGION"].map(region_labels)
+region_summary = (region_data.groupby("Region")["JOB_SATISFACTION"]
+                  .agg(Mean="mean", Observations="count")
+                  .sort_values("Mean"))
+fig, ax = plt.subplots(figsize=(9, 4.6))
+ax.barh(region_summary.index, region_summary["Mean"], color="steelblue")
+ax.set(xlabel="Mean satisfaction (0–10)", ylabel="", xlim=(0, 10))
+plt.tight_layout()
+plt.show()
+display(region_summary.round(3))
+```
 
-fig, ax = plt.subplots(figsize=(8, 5))
+@fig-region-satisfaction compares the seven **regions of residence**, not workplace locations. The pooled averages show geographic variation in job satisfaction, which could partly reflect differences in workforce composition and employment conditions. This motivates including region as a covariate in the adjusted RQ1.1 model rather than interpreting these descriptive differences as regional effects.
 
-# Scatter plot with regression line
-sns.regplot(data=dummy_data, x='Experience', y='Performance',
-            ax=ax, scatter_kws={'alpha': 0.5, 's': 50, 'edgecolor': 'black'},
-            line_kws={'color': 'red', 'linewidth': 2})
+### Changes around economic events (RQ1.2)
 
-ax.set_title("Experience vs Performance", 
-             fontsize=14, fontweight='bold', pad=15)
-ax.set_xlabel("Years of Experience", fontsize=12)
-ax.set_ylabel("Performance Score", fontsize=12)
-ax.grid(True, alpha=0.3, linestyle='--')
-
-# Add correlation coefficient
-corr = dummy_data['Experience'].corr(dummy_data['Performance'])
-ax.text(0.05, 0.95, f'Correlation: {corr:.3f}', 
-        transform=ax.transAxes, fontsize=11,
-        verticalalignment='top',
-        bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
-
+```{python}
+#| label: fig-event-windows
+#| fig-cap: "Mean job satisfaction in the year before, during and after three major economic events."
+event_years = {"2009 financial crisis": 2009, "2015 Swiss franc shock": 2015, "2020 COVID-19": 2020}
+fig, axes = plt.subplots(1, 3, figsize=(12, 3.8), sharey=True)
+for ax, (event, year) in zip(axes, event_years.items()):
+    window = annual[annual["YEAR"].between(year - 1, year + 1)]
+    ax.plot(window["YEAR"], window["mean_satisfaction"], marker="o")
+    ax.set_title(event)
+    ax.set_xticks([year - 1, year, year + 1])
+    ax.set_xlabel("Year")
+axes[0].set_ylabel("Mean satisfaction (0–10)")
 plt.tight_layout()
 plt.show()
 ```
 
-:::
+As shown in @fig-event-windows, the 2009 window shows a small decline; the 2015 window shows lower satisfaction during and after the franc shock; and 2020 shows a temporary increase followed by a return near the 2019 level in 2021. These windows are **not causal estimates** of the economic events. Respondent-clustered comparisons of the same years appear in the Analysis section.
 
-## Key Findings
+## Multivariate Analysis
 
-**Remember: Interpretation is more important than the plots themselves!** Each finding below not only states *what* we observe but also *why* it matters and *what* it means for our analysis.
+### Occupation across economic periods (RQ1.3)
 
-Summarize the main insights from your exploratory analysis. **Always reference your figures when discussing findings and provide thorough interpretation!**
+```{python}
+#| label: fig-occupation-period-heatmap
+#| fig-cap: "Average job satisfaction by occupation and broad economic period."
+period_data = occ.copy()
+period_data["Economic period"] = pd.cut(
+    period_data["YEAR"], bins=[2003, 2008, 2014, 2019, 2024],
+    labels=["2004–2008", "2009–2014", "2015–2019", "2020–2024"]
+)
+period_means = period_data.pivot_table(
+    index="Occupation", columns="Economic period", values="JOB_SATISFACTION",
+    aggfunc="mean", observed=True
+).reindex(list(occupation_labels.values()))
+fig, ax = plt.subplots(figsize=(9, 5))
+sns.heatmap(period_means, annot=True, fmt=".2f", cmap="YlGnBu", ax=ax,
+            cbar_kws={"label": "Mean satisfaction"})
+ax.set(xlabel="Economic period", ylabel="")
+plt.tight_layout()
+plt.show()
+```
 
-1. **Distribution patterns**: The performance scores shown in @fig-performance-dist follow an approximately normal distribution with a mean of `{python} f'{dummy_performance["performance"].mean():.2f}'` and standard deviation of `{python} f'{dummy_performance["performance"].std():.2f}'`. 
-   
-   **Interpretation**: This normal distribution suggests that most students perform around the average, with fewer students at the extremes (very high or very low scores). The relatively small standard deviation indicates consistent performance across the group. This pattern is typical in educational settings and suggests that the assessment was well-calibrated meaning not too easy (which would cause ceiling effects) nor too difficult (which would cause floor effects). The normality assumption also validates the use of parametric statistical tests for subsequent analyses.
+As shown in @fig-occupation-period-heatmap, occupational averages vary across the four broad periods, and the gaps between occupations are not identical in each period. These period labels are descriptive groupings, not four separate crisis treatments. The interaction regression in the Analysis section tests whether occupational differences vary significantly across periods.
 
-2. **Outliers and data quality**: The box plot (@fig-performance-box) reveals minimal outliers, with only a few observations falling below the lower whisker.
-   
-   **Interpretation**: The scarcity of outliers suggests good data quality and consistent measurement. The few low-performing outliers warrant further investigation - they could represent students who faced unusual circumstances or measurement errors. However, their small number means they are unlikely to significantly impact our overall conclusions. This finding gives us confidence in proceeding with the full dataset without extensive outlier removal.
+## Correlation Analysis and Choice of Visualisations
 
-3. **Group differences**: @fig-performance-by-instructor demonstrates noticeable variation in performance across different instructors, with some instructors showing higher median scores than others. The ANOVA test (@tbl-anova-test) confirms these differences are `{python} 'statistically significant (p < 0.05)' if p_value < 0.05 else 'not statistically significant (p ≥ 0.05)'`.
-   
-   **Interpretation**: `{python} 'The significant differences across instructors raise important questions about teaching effectiveness, grading consistency, or student assignment to sections. This finding suggests that "instructor" should be included as a control variable in any regression models predicting performance.' if p_value < 0.05 else 'The lack of significant differences suggests that instructor assignment does not substantially impact performance, or that grading standards are well-harmonized across sections.'` It also indicates that comparing students across different sections requires careful consideration. From a policy perspective, this might warrant investigating whether certain teaching methods are more effective or whether grading standards need to be harmonized across sections.
+A conventional correlation matrix across the categorical variables would be misleading: `OCCUPATION`, `SEX`, `REGION`, and `EMPLOYMENT_STATUS` are numeric **codes for categories**, not continuous measurements. A correlation between their numeric codes would depend on the arbitrary numbering of categories. We therefore use group means, grouped comparisons, and the occupation-by-period heatmap instead of an inappropriate correlation heatmap or scatter plot. Relationships involving the continuous variable `AGE` are explored through age groups, which also makes the results easier to interpret for RQ1.1.
 
-4. **Relationships**: The correlation matrix (@fig-correlation-matrix) reveals several interesting patterns:
-   - Strong positive correlation (r = `{python} f'{corr_matrix.loc["Experience", "Salary"]:.2f}'`) between Experience and Salary
-   - Moderate positive correlation (r = `{python} f'{corr_matrix.loc["Experience", "Performance"]:.2f}'`) between Experience and Performance
-   - Weak correlation (r = `{python} f'{corr_matrix.loc["Age", "Performance"]:.2f}'`) between Age and Performance
-   
-   **Interpretation**: The Experience-Salary correlation aligns with economic theory that experience is rewarded in labor markets. The Experience-Performance correlation suggests that experience contributes to better performance, though other factors clearly matter as well. Interestingly, Age shows minimal correlation with Performance, suggesting that chronological age alone doesn't predict success - what matters is relevant experience. These patterns will guide our variable selection for predictive modeling, favoring Experience over Age as a key predictor.
+## EDA Summary and Implications for Analysis
 
-5. **Experience-Performance relationship**: @fig-scatter-experience-performance clearly shows a positive linear relationship, with more experienced individuals tending to have higher performance scores. The correlation coefficient is `{python} f'{corr:.2f}'`.
-   
-   **Interpretation**: The linear relationship visible in the scatter plot confirms that experience has a consistent, positive effect on performance. However, the substantial scatter around the regression line indicates that experience alone doesn't determine performance - individual differences and other factors play important roles. This suggests that while experience is valuable, organizations shouldn't rely solely on it when making hiring or promotion decisions.
-
-::: {.callout-warning}
-## Common Mistakes in Interpretation
-
-**Observation (not interpretation):** "The histogram shows a normal distribution."  
-**Why it's insufficient:** This only describes what you see - it's an observation, not an interpretation. You need to explain what it *means* and *why it matters*.
-
-**Good interpretation (observation + story):** "The histogram shows a normal distribution (mean = 0.90, sd = 0.05), which indicates consistent performance across students. This pattern validates the use of parametric statistical tests in our subsequent analysis. The tight distribution suggests the assessment was well-calibrated, effectively distinguishing between ability levels without ceiling or floor effects that would compress scores."
-
-**Remember:** 
-
-- **Observation** = What you see in the data/plot
-- **Interpretation** = The story behind it - what it means, why it matters, what implications it has
-- **Always do both!** State the observation, then interpret its significance.
-:::
-
-::: {.callout-warning}
-## Common Mistake: Not Referencing Figures
-
-**Bad:** "The histogram shows a normal distribution."  
-**Good:** "As shown in @fig-performance-dist, the histogram reveals a normal distribution."
-
-**Why?**
-
-- Helps readers locate the relevant visualization
-- Creates professional, academic-style writing
-- Enables automatic figure numbering and links
-:::
-
-::: {.callout-tip}
-## From EDA to Analysis
-
-Use your EDA findings to:
-
-- **Refine research questions** based on observed patterns
-- **Select appropriate statistical methods** based on data distributions
-- **Identify variables** for inclusion in models
-- **Justify transformations** (e.g., log transform for skewed data)
-- **Set expectations** for what you might find in formal analysis
-:::
+The figures and tables above indicate a gradual decline in overall satisfaction, differences across occupations and demographic groups, and distinct patterns around the three event windows. The weighted annual-mean check also indicates a decline from 2004 to 2024 (**8.207 to 7.711**), although the report's main EDA remains unweighted. These findings motivate three sets of respondent-clustered regressions: adjusted group comparisons (RQ1.1), before/during/after event-window comparisons (RQ1.2), and an occupation-by-economic-period interaction (RQ1.3). The EDA supports the selection of occupation, age, sex, region, employment arrangement and survey year for RQ1.1; short event windows for RQ1.2; and occupation-by-period interaction terms for RQ1.3. The models and significance tests are presented in the Analysis section. None of these observational comparisons establishes causation.
