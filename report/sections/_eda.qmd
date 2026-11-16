@@ -1,12 +1,13 @@
 # Exploratory Data Analysis (EDA)
 
-We examine the distribution of job satisfaction, its development from 2004 to 2024, and differences across occupations, demographic groups, employment arrangements and economic periods. All figures use **unweighted respondent-year observations** from the employed sample unless otherwise stated. Because respondents can appear in several years, these plots describe the sample rather than independent individuals. Statistical tests are discussed separately in the Analysis section.
+We use exploratory data analysis (EDA) to understand how job satisfaction is distributed, how it changed from 2004 to 2024, and how it differs across groups. We begin with individual variables, then compare two variables at a time, and finally examine occupation and economic period together. This order helps us identify which patterns are worth testing in Section 4. All figures use **unweighted respondent-year observations** from the employed sample unless otherwise stated. Because respondents can appear in several years, these plots describe the sample rather than independent individuals. Formal statistical tests are presented in the Analysis section.
 
 ## Univariate Analysis
 
 ### Distribution of job satisfaction
 
 ```{python}
+#| echo: false
 #| label: fig-job-satisfaction-distribution
 #| fig-cap: "Distribution of reported job satisfaction among employed respondents, 2004–2024."
 import numpy as np
@@ -26,11 +27,12 @@ plt.tight_layout()
 plt.show()
 ```
 
-As shown in @fig-job-satisfaction-distribution, job satisfaction is concentrated toward the upper end of the 0–10 scale, with a median of **8**. The distribution is not symmetric: relatively few respondents report very low satisfaction. For this reason, we examine both the mean and the percentage reporting **low satisfaction (0–5)** rather than relying on the mean alone.
+We use a histogram because satisfaction is recorded as whole-number scores from 0 to 10; it shows how frequently each score appears, not just the average. As shown in @fig-job-satisfaction-distribution, job satisfaction is concentrated toward the upper end of the 0–10 scale, with a median of **8**. The distribution is not symmetric: relatively few respondents report very low satisfaction. For this reason, we examine both the mean and the percentage reporting **low satisfaction (0–5)** rather than relying on the mean alone.
 
 ### Summary statistics and potential outliers
 
 ```{python}
+#| echo: false
 #| label: tbl-eda-summary-statistics
 #| tbl-cap: "Descriptive statistics for job satisfaction and age in the employed analysis sample."
 summary_stats = analysis_sample[["JOB_SATISFACTION", "AGE"]].agg(
@@ -40,6 +42,7 @@ display(summary_stats.round(2))
 ```
 
 ```{python}
+#| echo: false
 #| label: fig-job-satisfaction-box
 #| fig-cap: "Box plot of job satisfaction scores (0–10); extreme responses are retained as valid survey answers."
 fig, ax = plt.subplots(figsize=(7, 3.3))
@@ -49,13 +52,14 @@ plt.tight_layout()
 plt.show()
 ```
 
-@tbl-eda-summary-statistics reports the central tendency and spread of the two continuous variables used in the project. The distribution in @fig-job-satisfaction-box is bounded by the questionnaire's 0–10 scale and is concentrated toward high satisfaction. Values at the low end can appear as statistical outliers in a box plot, but **they are valid survey responses, not data errors**, so we do not remove them. The bounded, uneven distribution also motivates reporting medians and the low-satisfaction share alongside means. The subsequent regressions use respondent-clustered standard errors because individuals can contribute several observations.
+@tbl-eda-summary-statistics reports the central tendency and spread of the two continuous variables used in the project. We added a box plot to check the spread and identify potentially unusual responses. The distribution in @fig-job-satisfaction-box is bounded by the questionnaire's 0–10 scale and is concentrated toward high satisfaction. Values at the low end can appear as statistical outliers in a box plot, but **they are valid survey responses, not data errors**, so we do not remove them. The bounded, uneven distribution also motivates reporting medians and the low-satisfaction share alongside means. The subsequent regressions use respondent-clustered standard errors because individuals can contribute several observations.
 
 ## Bivariate Analysis
 
 ### Overall trend in job satisfaction
 
 ```{python}
+#| echo: false
 #| label: fig-annual-satisfaction
 #| fig-cap: "Annual unweighted mean job satisfaction, 2004–2024."
 annual = (employed_sample.assign(LOW_SAT=employed_sample["JOB_SATISFACTION"].le(5))
@@ -71,11 +75,12 @@ plt.show()
 display(annual.loc[annual["YEAR"].isin([2004, 2024])].round(3))
 ```
 
-As shown in @fig-annual-satisfaction, the unweighted mean fell from **8.212 in 2004** to **7.815 in 2024**, a decline of **0.397 points**. The percentage reporting low satisfaction rose from **6.27%** to **7.56%**. These are descriptive trends and may partly reflect changes in the respondents included each year.
+As shown in @fig-annual-satisfaction, the unweighted mean fell from **8.212 in 2004** to **7.815 in 2024**, a decline of **0.397 points**. The percentage reporting low satisfaction rose from **6.27%** to **7.56%**. We use a line chart because the order of the survey years matters. These are descriptive trends: changes in who responded each year may also influence the average. The next comparison looks at whether this overall pattern differs by occupation.
 
 ### Occupational differences (RQ1.1)
 
 ```{python}
+#| echo: false
 #| label: fig-occupation-satisfaction
 #| fig-cap: "Mean job satisfaction by civilian occupational group, pooled across 2004–2024."
 occupation_labels = {
@@ -95,11 +100,55 @@ plt.tight_layout()
 plt.show()
 ```
 
-As shown in @fig-occupation-satisfaction, average satisfaction differs across occupational groups. Agricultural workers have the highest pooled average, while clerical support workers have the lowest among the nine civilian groups. We exclude Armed Forces (ISCO 0) from this comparison because of its small sample. Differences in occupation may overlap with age, region and employment arrangements; the Analysis section tests adjusted associations.
+We use a horizontal bar chart to compare the nine occupation categories without suggesting that their numerical ISCO codes have a continuous scale. As shown in @fig-occupation-satisfaction, average satisfaction differs across occupational groups. Agricultural workers have the highest pooled average, while clerical support workers have the lowest among the nine civilian groups. We exclude Armed Forces (ISCO 0) from this comparison because of its small sample. Differences in occupation may overlap with age, region and employment arrangements; the Analysis section tests adjusted associations.
+
+The pooled averages are useful for comparing occupations, but they can hide changes within each occupation over time. We therefore use a line for each occupation to compare its direction of change and a separate gap chart to summarise the spread between occupations. We additionally examine **annual occupation means** and the gap between the highest and lowest civilian occupation averages each year. We include these checks to see whether the overall decline is shared across occupations and whether occupational differences have widened or narrowed.
+
+```{python}
+#| echo: false
+#| label: fig-occupation-annual-trends
+#| fig-cap: "Annual mean job satisfaction by civilian occupation, 2004–2024."
+occupation_annual = (
+    occ.groupby(["YEAR", "Occupation"], as_index=False)["JOB_SATISFACTION"]
+    .agg(mean="mean", observations="count")
+)
+fig, ax = plt.subplots(figsize=(10, 5.5))
+for occupation, group in occupation_annual.groupby("Occupation"):
+    ax.plot(group["YEAR"], group["mean"], marker="o", markersize=2,
+            linewidth=1.2, label=occupation)
+ax.set(xlabel="Survey year", ylabel="Mean satisfaction (0–10)")
+ax.set_xticks(range(2004, 2025, 2))
+ax.legend(title="Occupation", bbox_to_anchor=(1.02, 1), loc="upper left")
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+#| echo: false
+#| label: fig-occupation-annual-gap
+#| fig-cap: "Difference between the highest and lowest civilian occupational mean each year."
+occupation_gap = (
+    occupation_annual.groupby("YEAR")["mean"]
+    .agg(highest="max", lowest="min")
+)
+occupation_gap["gap"] = occupation_gap["highest"] - occupation_gap["lowest"]
+fig, ax = plt.subplots(figsize=(9, 4))
+ax.plot(occupation_gap.index, occupation_gap["gap"], marker="o", markersize=3)
+ax.set(xlabel="Survey year", ylabel="Gap in mean satisfaction (points)")
+ax.set_xticks(range(2004, 2025, 2))
+ax.set_ylim(bottom=0)
+plt.tight_layout()
+plt.show()
+display(occupation_gap.loc[[2004, 2024]].round(3))
+```
+
+These figures add a time dimension to RQ1.1. The gap is calculated from the highest and lowest occupation means **within each year**, so the occupations defining it can change. Small occupational samples may also produce unstable annual averages. We therefore treat these patterns as a starting point for the occupation-by-period analysis, not as proof that occupation itself caused the differences.
+
 
 ### Demographic and employment differences (RQ1.1)
 
 ```{python}
+#| echo: false
 #| label: tbl-demographic-satisfaction
 #| tbl-cap: "Mean job satisfaction by age group, sex and employment arrangement."
 eda_demo = analysis_sample.copy()
@@ -121,11 +170,58 @@ for label in ["Age group", "Sex", "Employment arrangement"]:
     display(summary.round(3))
 ```
 
-The group summaries in @tbl-demographic-satisfaction show that satisfaction generally increases in older age groups, although these are comparisons across respondents, not evidence that aging causes higher satisfaction. Women report a slightly higher pooled mean than men. Very short part-time work and family-business work show higher unadjusted averages than full-time work, but their sample sizes are much smaller. The employment-arrangement comparison includes only records with the relevant valid categories. **Region is region of residence**, not necessarily workplace location. The regional descriptive comparison is shown next, with adjusted associations reported in the Analysis section.
+We use tables here because age, sex and employment arrangement have different category definitions and sample sizes; the counts help us judge how much weight to give each mean. The group summaries in @tbl-demographic-satisfaction show that satisfaction generally increases in older age groups, although these are comparisons across respondents, not evidence that aging causes higher satisfaction. Women report a slightly higher pooled mean than men. Very short part-time work and family-business work show higher unadjusted averages than full-time work, but their sample sizes are much smaller. The employment-arrangement comparison includes only records with the relevant valid categories. **Region is region of residence**, not necessarily workplace location. The regional descriptive comparison is shown next, with adjusted associations reported in the Analysis section.
+
+Pooled means can hide changes over time. We therefore use annual line charts to check whether the small difference between men and women is stable, rather than assuming the pooled average applies to every year.
+
+```{python}
+#| echo: false
+#| label: fig-sex-annual-trends
+#| fig-cap: "Annual mean job satisfaction for men and women, 2004–2024."
+sex_annual = (
+    eda_demo.loc[eda_demo["Sex"].isin(["Men", "Women"])]
+    .groupby(["YEAR", "Sex"], as_index=False)["JOB_SATISFACTION"]
+    .agg(mean="mean", observations="count")
+)
+fig, ax = plt.subplots(figsize=(9, 4.5))
+for sex, group in sex_annual.groupby("Sex"):
+    ax.plot(group["YEAR"], group["mean"], marker="o", markersize=3, label=sex)
+ax.set(xlabel="Survey year", ylabel="Mean satisfaction (0–10)")
+ax.set_xticks(range(2004, 2025, 2))
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+We apply the same approach to **age groups**. The line chart lets us compare trends while keeping age as meaningful categories, rather than treating age-group codes as continuous measurements.
+
+```{python}
+#| echo: false
+#| label: fig-age-group-annual-trends
+#| fig-cap: "Annual mean job satisfaction by age group, 2004–2024."
+age_annual = (
+    eda_demo.dropna(subset=["Age group"])
+    .groupby(["YEAR", "Age group"], observed=True, as_index=False)
+    ["JOB_SATISFACTION"].agg(mean="mean", observations="count")
+)
+fig, ax = plt.subplots(figsize=(10, 5))
+for age_group, group in age_annual.groupby("Age group", observed=True):
+    ax.plot(group["YEAR"], group["mean"], marker="o", markersize=2,
+            linewidth=1.3, label=str(age_group))
+ax.set(xlabel="Survey year", ylabel="Mean satisfaction (0–10)")
+ax.set_xticks(range(2004, 2025, 2))
+ax.legend(title="Age group", bbox_to_anchor=(1.02, 1), loc="upper left")
+plt.tight_layout()
+plt.show()
+```
+
+Both charts are **unadjusted comparisons**. Differences may reflect the composition of each group as well as employment conditions. We use them to decide which demographic characteristics to include in the adjusted RQ1.1 analysis.
+
 
 ### Regional differences (RQ1.1)
 
 ```{python}
+#| echo: false
 #| label: fig-region-satisfaction
 #| fig-cap: "Mean job satisfaction by region of residence, 2004–2024 (unweighted)."
 region_labels = {
@@ -148,9 +244,34 @@ display(region_summary.round(3))
 
 @fig-region-satisfaction compares the seven **regions of residence**, not workplace locations. The pooled averages show geographic variation in job satisfaction, which could partly reflect differences in workforce composition and employment conditions. This motivates including region as a covariate in the adjusted RQ1.1 model rather than interpreting these descriptive differences as regional effects.
 
+We follow the pooled regional bar chart with annual line charts because a single average can hide changes across the 21 years. This lets us see whether regional differences persist or move together over time.
+
+```{python}
+#| echo: false
+#| label: fig-region-annual-trends
+#| fig-cap: "Annual mean job satisfaction by region of residence, 2004–2024."
+region_annual = (
+    region_data.groupby(["YEAR", "Region"], as_index=False)["JOB_SATISFACTION"]
+    .agg(mean="mean", observations="count")
+)
+fig, ax = plt.subplots(figsize=(10, 5))
+for region, group in region_annual.groupby("Region"):
+    ax.plot(group["YEAR"], group["mean"], marker="o", markersize=2,
+            linewidth=1.2, label=region)
+ax.set(xlabel="Survey year", ylabel="Mean satisfaction (0–10)")
+ax.set_xticks(range(2004, 2025, 2))
+ax.legend(title="Region of residence", bbox_to_anchor=(1.02, 1), loc="upper left")
+plt.tight_layout()
+plt.show()
+```
+
+This graph shows whether regional differences are relatively stable or change over time. It does not identify the reasons behind those changes, so region remains a control variable rather than a causal explanation in the later model.
+
+
 ### Changes around economic events (RQ1.2)
 
 ```{python}
+#| echo: false
 #| label: fig-event-windows
 #| fig-cap: "Mean job satisfaction in the year before, during and after three major economic events."
 event_years = {"2009 financial crisis": 2009, "2015 Swiss franc shock": 2015, "2020 COVID-19": 2020}
@@ -166,13 +287,85 @@ plt.tight_layout()
 plt.show()
 ```
 
-As shown in @fig-event-windows, the 2009 window shows a small decline; the 2015 window shows lower satisfaction during and after the franc shock; and 2020 shows a temporary increase followed by a return near the 2019 level in 2021. These windows are **not causal estimates** of the economic events. Respondent-clustered comparisons of the same years appear in the Analysis section.
+We use the same three-year window for each event so the before, during and after years can be compared on a consistent basis. As shown in @fig-event-windows, the 2009 window shows a small decline; the 2015 window shows lower satisfaction during and after the franc shock; and 2020 shows a temporary increase followed by a return near the 2019 level in 2021. These windows are **not causal estimates** of the economic events. Respondent-clustered comparisons of the same years appear in the Analysis section.
+
+Because a line chart makes the direction clearer than the exact size, we also calculate the **before-to-during**, **during-to-after**, and **before-to-after** differences using the unrounded annual means.
+
+```{python}
+#| echo: false
+#| label: tbl-event-window-changes
+#| tbl-cap: "Mean job satisfaction and changes across each three-year event window."
+event_rows = []
+for event, year in event_years.items():
+    means = annual.set_index("YEAR")["mean_satisfaction"]
+    before, during, after = [means.loc[y] for y in (year - 1, year, year + 1)]
+    event_rows.append({
+        "Event": event, "Before": before, "During": during, "After": after,
+        "Before to during": during - before,
+        "During to after": after - during,
+        "Before to after": after - before
+    })
+event_comparison = pd.DataFrame(event_rows).set_index("Event")
+display(event_comparison.round(3))
+```
+
+We next compare **occupation-level changes around each event**. A grouped bar chart makes the size and direction of the changes easier to compare across occupations than nine overlapping lines. The overall mean could remain fairly stable even if some groups rise and others fall, so we calculate each group’s change from the preceding year to the event year.
+
+```{python}
+#| echo: false
+#| label: fig-event-occupation-changes
+#| fig-cap: "Change in mean satisfaction from the preceding year to each event year, by civilian occupation."
+event_occupation_rows = []
+for event, year in event_years.items():
+    for occupation, group in occupation_annual.groupby("Occupation"):
+        yearly = group.set_index("YEAR")
+        if year - 1 in yearly.index and year in yearly.index:
+            event_occupation_rows.append({
+                "Event": event,
+                "Occupation": occupation,
+                "Change": yearly.loc[year, "mean"] - yearly.loc[year - 1, "mean"],
+                "Smallest annual N": min(
+                    yearly.loc[year, "observations"],
+                    yearly.loc[year - 1, "observations"]
+                )
+            })
+event_occ_changes = pd.DataFrame(event_occupation_rows)
+event_occ_plot = event_occ_changes.pivot(
+    index="Occupation", columns="Event", values="Change"
+).reindex(list(occupation_labels.values()))
+fig, ax = plt.subplots(figsize=(11, 5))
+event_occ_plot.plot(kind="bar", ax=ax, width=0.8)
+ax.axhline(0, color="black", linewidth=0.8)
+ax.set(xlabel="Occupation", ylabel="Change in mean satisfaction (points)")
+ax.tick_params(axis="x", rotation=35)
+ax.legend(title="Event")
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+#| echo: false
+#| label: tbl-event-occupation-sample-check
+#| tbl-cap: "Occupation-event comparisons with fewer than 30 observations in at least one comparison year."
+small_event_groups = event_occ_changes.loc[
+    event_occ_changes["Smallest annual N"] < 30,
+    ["Event", "Occupation", "Smallest annual N"]
+]
+if small_event_groups.empty:
+    print("No occupation-event comparisons have fewer than 30 observations in either comparison year.")
+else:
+    display(small_event_groups.sort_values("Smallest annual N"))
+```
+
+The occupation-level plot is an additional **descriptive check**, not a separate causal test. We examine sample sizes because a large change based on very few respondents would be less reliable. These comparisons help motivate the broader occupation-by-period analysis in RQ1.3.
+
 
 ## Multivariate Analysis
 
 ### Occupation across economic periods (RQ1.3)
 
 ```{python}
+#| echo: false
 #| label: fig-occupation-period-heatmap
 #| fig-cap: "Average job satisfaction by occupation and broad economic period."
 period_data = occ.copy()
@@ -192,7 +385,7 @@ plt.tight_layout()
 plt.show()
 ```
 
-As shown in @fig-occupation-period-heatmap, occupational averages vary across the four broad periods, and the gaps between occupations are not identical in each period. These period labels are descriptive groupings, not four separate crisis treatments. The interaction regression in the Analysis section tests whether occupational differences vary significantly across periods.
+We use a heatmap rather than another multi-line chart because it makes comparisons across nine occupations and four periods easier to scan. The numbers inside the cells preserve the exact averages. As shown in @fig-occupation-period-heatmap, occupational averages vary across the four broad periods, and the gaps between occupations are not identical in each period. These period labels are descriptive groupings, not four separate crisis treatments. The interaction regression in the Analysis section tests whether occupational differences vary significantly across periods.
 
 ## Correlation Analysis and Choice of Visualisations
 
@@ -200,4 +393,4 @@ A conventional correlation matrix across the categorical variables would be misl
 
 ## EDA Summary and Implications for Analysis
 
-The figures and tables above indicate a gradual decline in overall satisfaction, differences across occupations and demographic groups, and distinct patterns around the three event windows. The weighted annual-mean check also indicates a decline from 2004 to 2024 (**8.207 to 7.711**), although the report's main EDA remains unweighted. These findings motivate three sets of respondent-clustered regressions: adjusted group comparisons (RQ1.1), before/during/after event-window comparisons (RQ1.2), and an occupation-by-economic-period interaction (RQ1.3). The EDA supports the selection of occupation, age, sex, region, employment arrangement and survey year for RQ1.1; short event windows for RQ1.2; and occupation-by-period interaction terms for RQ1.3. The models and significance tests are presented in the Analysis section. None of these observational comparisons establishes causation.
+Taken together, the EDA results guide what we test next rather than establishing why satisfaction changed. The figures and tables above show an overall decline in satisfaction, differences between occupational and demographic groups, and changes around the three event windows. The additional **annual occupation, age, sex and regional plots** show why pooled averages alone are not enough: group differences may change over time. The **occupation-gap** and **occupation-event** comparisons help us investigate RQ1.3, while sample-size checks warn against overinterpreting small groups. The weighted annual-mean check also indicates a decline from 2004 to 2024 (**8.207 to 7.711**), although the report's main EDA remains unweighted. These findings motivate three sets of respondent-clustered regressions: adjusted group comparisons (RQ1.1), before/during/after event-window comparisons (RQ1.2), and an occupation-by-economic-period interaction (RQ1.3). The EDA supports the selection of occupation, age, sex, region, employment arrangement and survey year for RQ1.1; short event windows for RQ1.2; and occupation-by-period interaction terms for RQ1.3. The models and significance tests are presented in the Analysis section. None of these observational comparisons establishes causation.
