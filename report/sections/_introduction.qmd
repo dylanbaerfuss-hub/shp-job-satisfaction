@@ -1,29 +1,50 @@
+
 # Introduction
 
 ## Project Goals
 
-Job satisfaction is an important topic in management and organisational behaviour because it is connected to employees' experiences at work and to decisions about retention and working conditions. However, satisfaction is shaped by several factors, including the type of work, employment arrangements, career opportunities and the wider economic environment. Looking only at one company or one point in time may therefore provide a limited picture.
+Job satisfaction is an important topic in management and organisational behaviour because it helps us understand how employees experience their work. It is also relevant to decisions about employee retention, working conditions and workforce management. However, job satisfaction can differ depending on occupation, employment arrangements, career opportunities and the wider economic environment. Looking at only one company or one year would therefore give us a limited picture.
 
-This project examines job satisfaction among employed people in Switzerland using the Swiss Household Panel (SHP). By combining annual survey data from 2004 to 2024, we aim to understand how satisfaction differs between occupational and demographic groups, how it has evolved over time, and whether the differences between occupations vary across economic periods. Switzerland provides a useful setting because its labour market includes different occupations and regions and experienced several major economic events during the study period, notably the 2009 financial crisis, the 2015 Swiss franc shock and the 2020 COVID-19 pandemic.
+For this project, we chose to study job satisfaction across Switzerland using the **Swiss Household Panel (SHP)**. By combining annual survey data from **2004 to 2024**, we can compare different occupational and demographic groups and examine how satisfaction has changed over time. Switzerland is an interesting setting because its labour market includes a wide range of occupations and regions. It also experienced several major economic events during our study period, including the **2009 financial crisis**, the **2015 Swiss franc shock** and the **2020 COVID-19 pandemic**. We wanted to investigate whether job satisfaction changed around these events and whether some occupational groups were affected differently.
 
-Our objective is to describe patterns in job satisfaction and test whether observed differences are statistically significant. The project follows a data science workflow: preparing and harmonising multiple survey waves, exploring distributions and trends, comparing groups, and applying statistical models. The findings may help inform discussions about employee well-being and workforce management, but the analysis identifies associations rather than causal effects.
+Our main objective is to identify patterns in job satisfaction and examine whether differences between groups and periods are **statistically significant**. We follow the data science workflow covered in class: preparing and cleaning the data, conducting **exploratory data analysis (EDA)**, comparing groups and applying statistical tests. This allows us to move beyond simply describing the data and examine whether the differences we observe are supported by statistical evidence. However, our results show associations and cannot establish that economic events or individual characteristics directly caused changes in satisfaction.
 
-Compared with our initial proposal, we refined the analysis to **2004–2024**, because the general job satisfaction measure was unavailable in several earlier waves. We also clarified that the regional variable refers to **region of residence**, not workplace location. Employment arrangements are included as an additional dimension of group comparisons. Since some respondents appear in multiple years, our preliminary regressions use standard errors clustered by respondent rather than treating every respondent-year observation as independent.
+We also made some changes to our initial project proposal after exploring the available data. We originally considered the full period from 1999 to 2024, but the general job satisfaction variable was missing for several earlier years. We therefore restricted our analysis to **2004–2024**, giving us 21 annual survey waves with a more consistent measure. We also clarified that our regional variable refers to **region of residence**, rather than workplace location, and included employment arrangements as an additional comparison. These decisions helped us define a more practical and consistent scope for the analysis.
 
 ## Research Questions
 
-**Main research question:** How does job satisfaction in Switzerland vary across occupational groups, age, gender and region, and how does it evolve during periods of economic stress?
+Our main research question is:
+
+**How does job satisfaction in Switzerland vary across occupational groups, age, gender and region, and how does it evolve during periods of economic stress?**
+
+To answer this, we divided our analysis into three research questions:
 
 - **RQ1.1:** What are the differences in average job satisfaction between occupational groups, age groups, men and women, and regions? We also examine differences by employment arrangement.
+
 - **RQ1.2:** How does job satisfaction change around major economic events (the 2009 financial crisis, the 2015 Swiss franc shock and the 2020 COVID-19 pandemic) compared with surrounding years and, where feasible, calmer periods?
+
 - **RQ1.3:** How do differences in job satisfaction between occupational groups change across different economic periods?
 
-RQ1.1 focuses on differences between groups of workers. RQ1.2 examines changes around specific events, using comparisons of the year before, the event year and the following year. RQ1.3 considers whether occupational gaps remain similar across four broader periods: 2004–2008, 2009–2014, 2015–2019 and 2020–2024.
+We structured the questions to move from general comparisons to more detailed analysis.
+
+First, **RQ1.1** examines differences between groups of workers. This gives us a starting point for understanding which groups report higher or lower satisfaction. Next, **RQ1.2** looks at changes around the three economic events. We compare the year before, the event year and the following year to see whether any noticeable changes occurred.
+
+Finally, **RQ1.3** builds on the first two questions by examining whether occupational differences change across four broader economic periods: **2004–2008, 2009–2014, 2015–2019 and 2020–2024**. Rather than looking only at overall satisfaction, we want to understand whether the gaps between occupations remain similar or vary depending on the economic period.
+
+Together, these questions guide our data preparation, visualisations and statistical analysis.
 
 ## Related Work
 
-Job satisfaction is commonly studied through employee surveys, but a national household panel offers a broader perspective than a survey conducted within one organisation. The SHP follows respondents across survey waves and provides information on job satisfaction alongside occupational and demographic characteristics [@shp2026]. This allows us to examine differences across groups and years using a consistent survey source.
+Job satisfaction is often studied using employee surveys, but surveys within a single organisation may not represent the wider labour market. We chose the **Swiss Household Panel (SHP)** because it collects information on individuals and households across Switzerland over multiple years. It includes job satisfaction alongside occupational, demographic and household characteristics, allowing us to compare groups and examine changes over time [@shp2026].
 
-For data preparation, we use pandas to clean, harmonise and merge annual files, following standard Python data-analysis practices described by @mckinney2022python and the pandas documentation [@pandasdocs]. We use Matplotlib for exploratory figures [@matplotlibdocs]. Our preliminary analysis then uses descriptive statistics and ordinary least squares (OLS) regressions to test group differences and changes across economic periods, implemented with statsmodels [@statsmodelsdocs]. Respondent-clustered standard errors account for correlation between repeated observations of the same person. These methods are appropriate for an initial assessment of associations, but they do not fully address survey design, changing sample composition or unobserved differences between respondents. We discuss these limitations when interpreting the results.
+The SHP is managed by **FORS** and distributed through **SWISSUbase**. We use **Version 12.0**, excluding the beta Wave 27, and focus on the 2004–2024 waves. Using the same survey source across years gives us a basis for comparing job satisfaction over time, although changes in respondents and sample composition still need to be considered.
 
-The SHP dataset is managed by FORS and distributed through SWISSUbase. We use Version 12.0, but exclude the beta Wave 27 and analyse only the 2004–2024 waves [@shp2026]. These references document the dataset and tools used; they are not presented as a systematic review of job-satisfaction research.
+For the technical part of the project, we use **Python** and the methods introduced in our Data Science Methods for Management module. We use **pandas** to select variables, clean missing values, harmonise annual datasets and merge individual and household information. Our approach follows the data preparation practices described by @mckinney2022python and the pandas documentation [@pandasdocs].
+
+We then use **Matplotlib** to create visualisations for our exploratory data analysis [@matplotlibdocs]. These include distributions, comparisons between groups and trends over time. We chose these visualisations because they help us identify patterns, unusual values and possible relationships before moving to statistical testing.
+
+For the statistical analysis, we use **descriptive statistics** and **ordinary least squares (OLS) regression**, implemented with statsmodels [@statsmodelsdocs]. The regression models allow us to examine differences between groups while accounting for other observed characteristics. Since some respondents appear in multiple survey years, we use **respondent-clustered standard errors** to account for repeated observations from the same person.
+
+These methods provide a starting point for examining relationships in the data. However, they do not fully account for the SHP's complex survey design, changes in sample composition or unobserved differences between respondents. We therefore interpret our findings as **associations rather than causal effects**.
+
+With the research questions and analytical approach defined, the next section explains the dataset, the variables we selected and the cleaning steps needed before conducting the exploratory analysis.
