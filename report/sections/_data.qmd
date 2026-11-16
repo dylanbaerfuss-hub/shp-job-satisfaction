@@ -55,7 +55,7 @@ The preparation was carried out in `01_data_preparation.ipynb`, using **pandas**
 The following Python code loads the three processed datasets. It uses paths relative to the project folder so that the same code can be used on different computers, provided the processed files are available.
 
 ```{python}
-#| label: tbl-data-loading
+#| label: load-data
 #| echo: true
 
 import pandas as pd
