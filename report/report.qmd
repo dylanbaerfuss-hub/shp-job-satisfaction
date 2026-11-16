@@ -3,8 +3,6 @@ title: "Job Satisfaction in Switzerland: Occupational Differences and Economic E
 author:
   - Dylan Baerfuss
   - Francesco Righini
-  - Amine Magouh
-  - Guilherme Bastos
 institute: "HEC Lausanne, University of Lausanne"
 date: "2026-11-16"
 title-block-banner: "#0095C8"
