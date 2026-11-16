@@ -54,7 +54,8 @@ for code, name in selected.items():
     rows.append({"Occupation": name, "Difference (points)": model_rq11.params[term], "p-value": model_rq11.pvalues[term]})
 table = pd.DataFrame(rows)
 table["p-value"] = table["p-value"].apply(lambda p: "< 0.001" if p < 0.001 else f"{p:.3f}")
-display(table.set_index("Occupation").rename_axis(None).round(3))print(f"N = {len(rq11_data):,}; respondent-clustered Wald chi-square({len(occ_terms)}) = {float(occ_test.statistic):.2f}; {'p < 0.001' if occ_test.pvalue < 0.001 else f'p = {float(occ_test.pvalue):.3f}'}; R² = {model_rq11.rsquared:.3f}")
+display(table.set_index("Occupation").rename_axis(None).round(3))
+print(f"N = {len(rq11_data):,}; respondent-clustered Wald chi-square({len(occ_terms)}) = {float(occ_test.statistic):.2f}; {'p < 0.001' if occ_test.pvalue < 0.001 else f'p = {float(occ_test.pvalue):.3f}'}; R² = {model_rq11.rsquared:.3f}")
 ```
 
 As shown in @tbl-rq11-occupation, occupational differences are jointly significant (χ²(8) = **168.22**, p < 0.001; **124,635 observations**). Relative to clerical support workers, agricultural workers (+0.560 points), managers (+0.317) and professionals (+0.231) have higher average satisfaction after controlling for survey year. 
