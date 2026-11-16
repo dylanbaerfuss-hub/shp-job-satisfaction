@@ -2,17 +2,24 @@
 
 ## Methods and rationale
 
-We use **ordinary least squares (OLS)** regression to test whether the descriptive differences in job satisfaction are statistically distinguishable from zero. The outcome is the reported **0–10 job-satisfaction score**. OLS gives coefficients in satisfaction points, which are straightforward to interpret; it is a practical first approach rather than a claim that the bounded outcome is normally distributed. We treat occupation, age groups, sex, region of residence, employment arrangement, survey year and economic periods as categorical variables where appropriate.
+We use **ordinary least squares (OLS)** regression to test whether the descriptive differences in job satisfaction are statistically distinguishable from zero. The outcome is the reported **0 – 10 job-satisfaction score**. OLS gives coefficients in satisfaction points, which are straightforward to interpret. We treat occupation, age groups, sex, region of residence, employment arrangement, survey year and economic periods as categorical variables where appropriate.
 
-Respondents may appear in multiple waves, so **standard errors are clustered by respondent (`IDPERS`)** in every regression. This accounts for within-person correlation in standard errors, but does not eliminate confounding or fully incorporate the complex survey design. Models are **unweighted**; the separate survey-weight check is discussed in the Data section. All results are observational, not causal.
+One of the strong point of our data is that respondents answer the survey in several years, so their answers are not independent of each other. For this reason, we **cluster the standard errors by respondent** (`IDPERS`) in every regression, which makes the p-values more accurate.      
+Clustering does not, however, account for factors that we do not observe, such as income or personality. 
+The regressions are unweighted: we use the survey weights only to check the annual trend in the Data section, because the data are observational, the results show associations, not causal effects.
 
 ### Model assumptions and checks
 
-OLS assumes that the conditional mean is adequately specified, that the predictors are not perfectly collinear, and that errors are appropriately handled for inference. **Normality of the job-satisfaction scores themselves is not an OLS requirement**; however, the bounded, discrete 0–10 outcome and possible ceiling effects mean a linear model is an approximation. We have **not formally verified** residual normality, functional form or all other diagnostics, so we cannot claim that every assumption is satisfied. Coefficients should therefore be read as preliminary differences in mean satisfaction, not as precise causal effects.
+Like any linear regression, OLS relies on some assumptions: the model must include the relevant variables in the right form, no predictor can be an exact combination of the others, and the standard errors must reflect how the data were collected. **OLS does not require job satisfaction itself to be normally distributed**. However, the score only takes whole values from 0 to 10 and most answers are close to the top of the scale, so a linear model is only an approximation. We have not yet run formal diagnostics (for example on the residuals), so for now the coefficients should be read as preliminary differences in average satisfaction.
 
-The SHP follows individuals over time, so respondent-year observations are **not independent**. Clustering standard errors by `IDPERS` allows errors for the same respondent to be correlated across waves, but does not correct omitted-variable bias or changes in sample composition. The models use category indicators rather than treating occupation, sex or region codes as continuous quantities. The models also do not fully account for the SHP's survey sampling design; a weighted sensitivity check for descriptive trends is reported in the Data section, not as validation of these regressions. We will consider model diagnostics, survey-design sensitivity checks and within-person specifications in the final report.
+**Categorical variables enter the models as separate groups**, so occupation, sex and region codes are not treated as numbers. The models are not fully accountble also because of the survey is designed, more specifically the way SHP selects its households. 
+Our goal for the final report, we will check the model diagnostics, compare the results with weighted models and look at changes within the same people over time.
 
-The three tests address different questions: (1) occupational and demographic differences after adjustment; (2) changes between the year before, during and after selected events; and (3) whether occupational gaps vary across four broader periods. Joint **Wald tests** evaluate whole groups of coefficients, rather than relying on isolated comparisons.
+Each research question has its own test:
+- For **RQ1.1**, we compare occupational and demographic groups while holding the other characteristics constant. 
+- For **RQ1.2**, we compare the year before each event with the event year and the year after. 
+- For **RQ1.3**, we check whether the gaps between occupations change across four periods. 
+For each group of variables, we use a **joint Wald test**, which asks whether the group matters as a whole instead of looking at one category at a time.
 
 ```{python}
 #| label: analysis-setup
@@ -23,9 +30,9 @@ import statsmodels.formula.api as smf
 from IPython.display import display
 ```
 
-## RQ1.1 — Occupation, demographics and employment arrangements
+## RQ1.1 — Occupation, Demographics and Employment arrangements
 
-First, we compare **nine civilian occupational groups** while controlling for survey year. Armed Forces (occupation code 0) is excluded because of its very small sample. Clerical support workers (code 4) are the reference occupation.
+First, we compare the **nine civilian occupational groups** and keep the survey year constant, so that differences between years do not affect the comparison. We leave out the Armed Forces components because they have very few respondents. Clerical support workers is what we choose as the **reference group**: since they have the lowest average satisfaction. Each coefficient shows how many points more satisfied another group is.
 
 ```{python}
 #| label: tbl-rq11-occupation
@@ -45,13 +52,15 @@ rows = []
 for code, name in selected.items():
     term = next(t for t in occ_terms if f"[T.{code}]" in t)
     rows.append({"Occupation": name, "Difference (points)": model_rq11.params[term], "p-value": model_rq11.pvalues[term]})
-display(pd.DataFrame(rows).round(4))
-print(f"N = {len(rq11_data):,}; respondent-clustered Wald chi-square({len(occ_terms)}) = {float(occ_test.statistic):.2f}; p = {float(occ_test.pvalue):.3g}; R² = {model_rq11.rsquared:.3f}")
+table = pd.DataFrame(rows)
+table["p-value"] = table["p-value"].apply(lambda p: "< 0.001" if p < 0.001 else f"{p:.3f}")
+display(table.set_index("Occupation").rename_axis(None).round(3))print(f"N = {len(rq11_data):,}; respondent-clustered Wald chi-square({len(occ_terms)}) = {float(occ_test.statistic):.2f}; {'p < 0.001' if occ_test.pvalue < 0.001 else f'p = {float(occ_test.pvalue):.3f}'}; R² = {model_rq11.rsquared:.3f}")
 ```
 
-As shown in @tbl-rq11-occupation, occupational differences are jointly significant (χ²(8) = **168.22**, p < 0.001; **124,635 observations**). Relative to clerical support workers, agricultural workers (+0.560 points), managers (+0.317) and professionals (+0.231) have higher average satisfaction after controlling for survey year. This is evidence of differences between occupational groups, not evidence that occupation itself causes satisfaction.
+As shown in @tbl-rq11-occupation, occupational differences are jointly significant (χ²(8) = **168.22**, p < 0.001; **124,635 observations**). Relative to clerical support workers, agricultural workers (+0.560 points), managers (+0.317) and professionals (+0.231) have higher average satisfaction after controlling for survey year. 
+This is evidence of differences between occupational groups, since half point a a decimal scale is quite significant, but not enough to conclude that occupation itself causes satisfaction.
 
-We then include age group, sex, region of residence and employment arrangement together with occupation and survey year. The sample is smaller because employment-arrangement categories must be valid; sex is restricted to codes 1 and 2. Age under 25, managers, sex code 1, region code 1 and full-time employment are the model's reference categories.
+Next, we add age group, sex, region of residence and employment arrangement to the same model, so that each characteristic is compared while the others are kept as constant. This model uses fewer observations, because we keep only respondents with a valid employment arrangement and we choose to limit sex to men and women, since the "other" category is too small to be accountable.             The reference groups selected are respondents under 25, managers, men, the Lake Geneva region and full-time employment.
 
 ```{python}
 #| label: tbl-rq11-joint-tests
@@ -75,15 +84,22 @@ for variable, label in [("OCCUPATION", "Occupation"), ("AGE_GROUP", "Age group")
     terms = [t for t in model_rq11_full.params.index if t.startswith(f"C({variable})[")]
     test = model_rq11_full.wald_test(" = 0, ".join(terms) + " = 0", scalar=True)
     joint_rows.append({"Variable": label, "df": len(terms), "Wald χ²": float(test.statistic), "p-value": float(test.pvalue)})
-display(pd.DataFrame(joint_rows).round(4))
+table = pd.DataFrame(joint_rows)
+table["p-value"] = table["p-value"].apply(lambda p: "< 0.001" if p < 0.001 else f"{p:.3f}")
+display(table.set_index("Variable").rename_axis(None).round(3))
 print(f"N = {len(rq11_full):,}; respondents = {rq11_full['IDPERS'].nunique():,}; R² = {model_rq11_full.rsquared:.3f}")
 ```
 
-As shown in @tbl-rq11-joint-tests, all five groups of predictors are jointly significant (each p < 0.001; **104,526 observations**, **18,363 respondents**, R² = **0.039**). For example, clerical support workers score **0.321 points lower than managers**, controlling for the included characteristics; respondents aged 65+ score **1.088 points higher than those under 25**. Part-time employment of 5–36 hours differs only slightly from full-time work (**−0.065 points**). These comparisons do not imply that every category within a variable differs significantly. We retain numeric sex codes in model interpretation until their official labels are verified.
+As shown in @tbl-rq11-joint-tests, all five groups of predictors are **jointly significant** (each p < 0.001; 104,526 observations, 18,363 respondents, R² = 0.039). For example, Clerical support workers score 0.321 points lower than Managers,almost the same gap as in @tbl-rq11-occupation, so the **occupation difference does not disappear** when age, sex, region and employment arrangement are taken into account.
+Respondents aged 65+ score 1.088 points higher than those under 25. Part-time employment of 5–36 hours differs only slightly from full-time work. These comparisons do not imply that every category within a variable differs significantly. We retain numeric sex codes in model interpretation until their official labels are verified.
 
-## RQ1.2 — Changes around economic events
+Part of this gap is probably a **selection effect**: people who keep working after the usual retirement age often do so because they like their job, while less satisfied workers are more likely to have already choose to be retired.
 
-We estimate **three separate event-window regressions** comparing the year before each event with the event year and the following year: 2008–2010, 2014–2016 and 2019–2021. Each model uses respondent-clustered standard errors. These are *year-to-year comparisons*, not causal estimates of the events' effects; they do not adjust for other changes occurring at the same time.
+## RQ1.2 — Changes around Economic Events
+
+For the research question 1.2, we look at each event separately. For the 2009 financial crisis, the 2015 franc shock and the 2020 pandemic. 
+We compare **satisfaction in the year before the event with the event year and the year after** (2008–2010, 2014–2016 and 2019–2021). To compare roughly the **same people** over time, each window only includes respondents who already answered in the year before the event, and this is easy to do since the households are named. Otherwise, new respondents joining the panel, such as the new SHP sample of 2020, whose members start with higher satisfaction, could make satisfaction look higher in the event year. 
+These comparisons allow us to asses what changed between years, but they cannot separate the effect of the event from anything else that happened at the same time.
 
 ```{python}
 #| label: tbl-event-comparisons
@@ -105,14 +121,16 @@ for event_name, event_year in events.items():
     for period in ["During", "After"]:
         term = next(t for t in fitted.params.index if f"[T.{period}]" in t)
         event_rows.append({"Event": event_name, "Comparison": f"{period} vs before", "Difference (points)": fitted.params[term], "p-value": fitted.pvalues[term], "N": len(subset)})
-display(pd.DataFrame(event_rows).round(4))
+table = pd.DataFrame(event_rows)
+table["p-value"] = table["p-value"].apply(lambda p: "< 0.001" if p < 0.001 else f"{p:.3f}")
+display(table.set_index(["Event", "Comparison"]).rename_axis([None, None]).round(3))
 ```
 
-As shown in @tbl-event-comparisons, the **2009** event-year change is not significant (−0.034, p = 0.147), while 2010 is slightly lower than 2008 (−0.053, p = 0.026). The **2015** and **2016** comparisons are both negative and significant (−0.068 and −0.089, respectively; both p < 0.001). In **2020**, satisfaction is temporarily higher than in 2019 (+0.078, p < 0.001), but the 2021 difference is effectively zero (+0.001, p = 0.977). The magnitudes are small, and the 2009 after-year result warrants particular caution given multiple comparisons.
+As shown in @tbl-event-comparisons, the **2009** event-year change is **not significant** (−0.034, p = 0.147), while **2010** is **slightly lower** than **2008** (−0.053, p = 0.026). The **2015** and **2016** comparisons are **both negative and significant** (−0.068 and −0.089, respectively; both p < 0.001). In **2020**, satisfaction is temporarily higher than in 2019 (+0.078, p < 0.001), but the 2021 difference is effectively zero (+0.001, p = 0.977). The magnitudes are small, and the 2009 after-year result warrants particular caution given multiple comparisons.
 
-## RQ1.3 — Occupation × economic period
+## RQ1.3 — Occupation × Economic period
 
-We test whether occupational differences change across **2004–2008, 2009–2014, 2015–2019 and 2020–2024**. The model includes occupation, economic period and their interaction. A joint Wald test assesses whether all **24 interaction coefficients** are zero. Managers and 2004–2008 are the reference categories.
+For the third one, we check whether the gaps between occupations **stay the same over time**. We divide the years into four periods (2004–2008, 2009–2014, 2015–2019 and 2020–2024) and allow the occupation differences to change from one period to the next, using an **interaction between occupation and period**. A **joint Wald test** then checks whether all these changes (24 coefficients) are zero, which would mean that the gaps are stable. Managers and 2004–2008 are the reference categories.
 
 ```{python}
 #| label: tbl-rq13-interaction
@@ -134,14 +152,20 @@ interaction_rows = []
 for code, name in selected_interactions.items():
     term = next(t for t in interaction_terms if f"[T.{code}]" in t and "[T.2020–2024]" in t)
     interaction_rows.append({"Occupation": name, "Interaction (points)": model_rq13.params[term], "p-value": model_rq13.pvalues[term]})
-display(pd.DataFrame(interaction_rows).round(4))
+table = pd.DataFrame(interaction_rows)
+table["p-value"] = table["p-value"].apply(lambda p: "< 0.001" if p < 0.001 else f"{p:.3f}")
+display(table.set_index("Occupation").rename_axis(None).round(3))
 print(f"N = {len(rq13_data):,}; respondents = {rq13_data['IDPERS'].nunique():,}; Wald chi-square({len(interaction_terms)}) = {float(interaction_test.statistic):.2f}; p = {float(interaction_test.pvalue):.4f}; R² = {model_rq13.rsquared:.3f}")
 ```
 
-As shown in @tbl-rq13-interaction, the joint interaction is statistically significant (**χ²(24) = 45.88, p = 0.0046**; **124,635 observations**, R² = **0.009**). Thus, occupational gaps are not completely stable across periods. In 2020–2024, the gap relative to managers is lower than in 2004–2008 for professionals (−0.190), technicians (−0.161) and service and sales workers (−0.174). These are **changes in relative occupational gaps**, not absolute changes in those groups' satisfaction. Individual interaction p-values should be interpreted cautiously because many comparisons were tested.
+The joint test in @tbl-rq13-interaction is significant (**χ²(24) = 45.88, p = 0.0046**; 124,635 observations), so the gaps between occupations are not completely stable over time. The clearest change is in the last period: compared with 2004–2008, professionals (−0.190 points), technicians (−0.161) and service and sales workers (−0.174) lost ground relative to managers in 2020–2024. This does not necessarily mean that these groups became less satisfied, only that their distance from managers changed. One possible explanation is that the last period includes the pandemic, which hit service and sales jobs particularly hard, but we still need to check this in the final report. Since we test 24 coefficients, one or two could look significant just by chance, so the joint test is the main result and the individual coefficients should be read with caution.
 
 # Findings and Discussion
 
-Taken together, the results in @tbl-rq11-joint-tests, @tbl-event-comparisons and @tbl-rq13-interaction support three preliminary conclusions. **First**, occupational, demographic, regional and employment-arrangement differences are detectable, but the adjusted model explains only a small fraction of individual satisfaction variation. **Second**, the three event windows show different patterns, including a small temporary rise in 2020 rather than a uniform decline during crises. **Third**, occupational differences vary across broader economic periods, particularly in comparisons with managers in 2020–2024.
+Taken together, the results in @tbl-rq11-joint-tests, @tbl-event-comparisons and @tbl-rq13-interaction lead to **three preliminary conclusions**. 
+First, **job satisfaction differs between groups of workers**: occupation, age, sex, region of residence and employment arrangement all matter, and the gap between occupations remains when the other characteristics are taken into account. Age shows the clearest pattern, with satisfaction lowest among workers in their late twenties and early thirties and highest among the oldest workers. However, these characteristics explain only a small part of the differences between individuals, so knowing someone's group says little about how satisfied that person is. 
+Second, **satisfaction declines slowly over the whole period, and the three economic events are not followed by the same reaction**. Around the 2009 financial crisis there is little change in the event year; around the 2015 franc shock satisfaction is lower in the event year and in the year after; in 2020 it is temporarily higher before returning to its previous level. Economic shocks therefore do not seem to lower job satisfaction automatically. Part of the 2020 increase may also come from the new sample of respondents that joined the SHP that year, which we will check in the final report. 
+Third, **the gaps between occupations are not fixed over time**: in the most recent period, several occupational groups lost ground relative to managers, possibly in connection with the COVID-19 pandemic.
 
-For management, these findings suggest that employee satisfaction is not uniform across worker groups or periods. However, the observed differences are generally modest and should not be treated as a basis for causal claims or direct policy prescriptions. Limitations include **unweighted regressions**, **changing sample composition**, **unobserved characteristics**, **multiple hypothesis tests**, **bounded satisfaction scores**, and incomplete incorporation of the survey's complex design. Further robustness work could assess weighted models, alternative event windows and within-person changes. The Conclusion section summarises progress and next steps for the final report.
+For management, these findings suggest that employee satisfaction is not uniform across worker groups or over time. 
+Younger workers and some occupational groups appear less satisfied, which matters for retention, since dissatisfied employees are more likely to leave. At the same time, the differences are modest and based on observational data, so they should guide where an organisation looks rather than be read as evidence of what causes satisfaction, and national averages cannot replace an organisation's own employee surveys. The results are still preliminary: the regressions are unweighted, the sample changes over time and many tests were run, as discussed in the Conclusion. For the final report, we will check the robustness of these results with weighted models and by comparing the same respondents before and after each event and, following the feedback on our proposal, focus on one economic event and on the most interesting occupational groups.
