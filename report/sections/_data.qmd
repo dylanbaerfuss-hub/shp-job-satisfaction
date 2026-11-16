@@ -1,33 +1,63 @@
+
 # Data
 
 ## Sources
 
-Our primary data source is the **Swiss Household Panel (SHP)**, *Living in Switzerland Waves 1–26 + Long file + Beta version Wave 27*, Version 12.0, published by FORS and distributed through SWISSUbase [@shp2026]. The version-specific dataset DOI is [10.48573/haxy-c230](https://doi.org/10.48573/haxy-c230); the canonical DOI is [10.48573/pjmf-8s41](https://doi.org/10.48573/pjmf-8s41). Access for this educational research project was approved on **19 October 2026**. We used the SAS files from the release, excluding the beta Wave 27.
+Our main data source is the **Swiss Household Panel (SHP)**, *Living in Switzerland Waves 1–26 + Long file + Beta version Wave 27*, Version 12.0, published by **FORS** and distributed through **SWISSUbase** [@shp2026]. The version-specific DOI is [10.48573/haxy-c230](https://doi.org/10.48573/haxy-c230), while the canonical DOI is [10.48573/pjmf-8s41](https://doi.org/10.48573/pjmf-8s41). We received approval to access the data for this educational project on **19 October 2026**.
 
-Although the release contains waves dating back to 1999, our analysis covers **2004–2024 (21 annual waves)** because the general job-satisfaction measure is unavailable in several earlier years. We combined annual individual and household records to study employed respondents across Switzerland. The underlying microdata are access-controlled; we do not redistribute them with the report.
+We chose the SHP because it follows individuals and households across multiple years and contains information on employment, occupation, demographics and job satisfaction. This allows us to compare different groups of workers and examine how satisfaction changes over time using the same survey source.
+
+Although the dataset covers years starting from 1999, we restricted our analysis to **2004–2024**, giving us **21 annual waves**. During our initial exploration, we found that the general job satisfaction variable was unavailable in several earlier years, particularly 2000–2003. Including these years would have created gaps in our analysis, so we decided to focus on the period with more consistent coverage. We also excluded the beta Wave 27 because it was not part of the finalised waves used in our study.
+
+We used the annual **SAS files** to combine individual and household information. As the SHP microdata are access-controlled, the original files are stored locally and are not uploaded to our GitHub repository or distributed with the report.
 
 ## Description
 
-Our preparation process produced three related datasets:
+After preparing the annual survey files, we created three datasets for different stages of the analysis.
 
 | Dataset | Respondent-year observations | Unique respondents | Purpose |
 |---|---:|---:|---|
-| Full dataset | 305,462 | 45,632 | Harmonised individual and household records |
+| Full dataset | 305,462 | 45,632 | Combined individual and household records |
 | Employed sample | 124,769 | 22,265 | Employed respondents with valid occupation and job satisfaction |
 | Analysis sample | 124,766 | — | Employed sample excluding missing age or sex |
 
-The **full dataset has 10 standardised variables**: `IDPERS` (respondent identifier), `IDHOUS` (household identifier), `YEAR`, `AGE`, `SEX`, `EMPLOYMENT_STATUS`, `WORKING_STATUS`, `OCCUPATION`, `JOB_SATISFACTION` and `REGION`. Job satisfaction is measured on a **0–10 scale**; occupation is grouped using ISCO major groups; `REGION` describes **region of residence**, not necessarily the region of employment. Employment arrangements are analysed separately from the employment-status filter.
+The **full dataset** contains all harmonised observations from 2004 to 2024. We then created the **employed sample** because our research focuses on job satisfaction among people who are working. Finally, we created the **analysis sample** by removing observations with missing age or sex values, allowing us to compare demographic groups more consistently.
 
-Each row represents a respondent in a particular survey year. Since individuals can appear in multiple waves, the number of rows is larger than the number of distinct respondents. The sample also varies across years and occupational groups, which matters when comparing means.
+The full dataset contains **10 standardised variables**:
+
+- `IDPERS`: Respondent identifier.
+- `IDHOUS`: Household identifier.
+- `YEAR`: Survey year.
+- `AGE`: Respondent's age.
+- `SEX`: Respondent's sex.
+- `EMPLOYMENT_STATUS`: Employment arrangement.
+- `WORKING_STATUS`: Whether the respondent is working.
+- `OCCUPATION`: Occupational group based on ISCO major groups.
+- `JOB_SATISFACTION`: General job satisfaction score.
+- `REGION`: Region of residence.
+
+Our main variable is **job satisfaction**, measured on a **0–10 scale**, where higher values indicate greater satisfaction. We use occupation to compare different types of work, while age, sex, employment arrangements and region allow us to examine whether satisfaction varies across demographic and employment groups.
+
+We use **ISCO major groups** to classify occupations because they provide a consistent way to compare different types of jobs. We also keep the distinction between `WORKING_STATUS` and `EMPLOYMENT_STATUS`: the first identifies whether someone is working, while the second is used to compare employment arrangements.
+
+One limitation is that `REGION` refers to the respondent's **region of residence**, not necessarily their workplace. We therefore interpret regional differences as differences between residents of different regions rather than differences between regional labour markets.
+
+Each row represents one respondent in one survey year, known as a **respondent-year observation**. Because some people participate in several waves, the same respondent can appear more than once. This is important for the statistical analysis because repeated observations from one person may be related.
 
 ## Loading Data
 
-We initially read annual SAS files using Python and `pyreadstat`, selected the relevant columns and merged individual and household information. We then saved the harmonised datasets as CSV files under `data/processed/`, so the report can use the prepared data without rerunning the entire raw-data pipeline [@mckinney2022python; @pandasdocs].
+We initially loaded the annual SHP files in **SAS format** using Python and `pyreadstat`. We selected the variables needed for our research and combined the relevant individual and household information.
 
-The following chunk loads the processed files using paths relative to the project root. It requires the three CSV files exported by `01_data_preparation.ipynb` to be present in `data/processed/`.
+Rather than processing all the original files every time we run the report, we saved the cleaned and harmonised datasets as **CSV files** in `data/processed/`. This makes the workflow more efficient and allows us to use the same prepared data throughout the report.
+
+The preparation was carried out in `01_data_preparation.ipynb`, using **pandas** for data manipulation [@mckinney2022python; @pandasdocs].
+
+The following Python code loads the three processed datasets. It uses paths relative to the project folder so that the same code can be used on different computers, provided the processed files are available.
 
 ```{python}
-#| label: load-data
+#| label: tbl-data-loading
+#| echo: true
+
 import pandas as pd
 from IPython.display import display
 from pathlib import Path
@@ -38,29 +68,68 @@ if not (project_root / "data" / "processed").is_dir():
     project_root = project_root.parent
 
 processed_dir = project_root / "data" / "processed"
+
 full_dataset = pd.read_csv(processed_dir / "full_dataset.csv")
 employed_sample = pd.read_csv(processed_dir / "employed_sample.csv")
 analysis_sample = pd.read_csv(processed_dir / "analysis_sample.csv")
 
 sample_overview = pd.DataFrame({
-    "Dataset": ["Full dataset", "Employed sample", "Analysis sample"],
-    "Observations": [len(full_dataset), len(employed_sample), len(analysis_sample)],
-    "Variables": [full_dataset.shape[1], employed_sample.shape[1], analysis_sample.shape[1]],
+    "Dataset": [
+        "Full dataset",
+        "Employed sample",
+        "Analysis sample"
+    ],
+    "Observations": [
+        len(full_dataset),
+        len(employed_sample),
+        len(analysis_sample)
+    ],
+    "Variables": [
+        full_dataset.shape[1],
+        employed_sample.shape[1],
+        analysis_sample.shape[1]
+    ],
 })
+
 display(sample_overview)
 ```
+
+The loading check confirms that all three datasets contain the expected number of observations and **10 variables**. The full dataset contains **305,462 observations**, while the employed and analysis samples contain **124,769** and **124,766 observations**, respectively.
+
+Keeping separate datasets allows us to check the original information, work with employed respondents and apply additional restrictions for statistical analysis without repeating the cleaning process.
 
 ## Wrangling
 
 ### General Transformations
 
-We first inspected the available variables and their coding in the annual SHP files, testing the preparation procedure on individual waves before automating it for **2004–2024**. For each wave, we selected the relevant individual and household variables, converted invalid survey codes to missing values, harmonised column names, merged the files using their appropriate identifiers and added the survey year. The annual datasets were then concatenated into a single dataset.
+Before combining the annual datasets, we needed to make sure that variables from different survey years could be compared. This is an important part of **data cleaning and harmonisation**, especially when working with survey data collected over a long period.
 
-For the employed sample, we retained respondents with **`WORKING_STATUS == 1`**, a valid occupation code (ISCO major groups 0–9) and a job-satisfaction score from 0 to 10. We did **not** use `EMPLOYMENT_STATUS` as the employment filter: that variable is retained for comparisons of employment arrangements. The smaller analysis sample additionally excludes the **two missing age values and one missing sex value** in the employed sample. For some regressions, further complete-case restrictions apply; their sample sizes are reported in the Analysis section.
+We started by inspecting the available variables and their coding in individual survey waves. We tested the preparation process on selected years before applying it to all **21 waves from 2004 to 2024**. This helped us identify differences in variable names, missing-value codes and file structures before combining the data.
+
+Our preparation followed these steps:
+
+1. **Variable selection:** We kept the individual and household variables needed to answer our research questions.
+2. **Missing-value treatment:** We converted special survey codes representing missing or invalid answers into missing values.
+3. **Harmonisation:** We standardised variable names and coding across years.
+4. **Merging:** We combined individual and household information using the appropriate identifiers.
+5. **Concatenation:** We added the survey year and combined all annual datasets into one dataset.
+6. **Sample selection:** We filtered the combined dataset to retain employed respondents with valid occupation and job satisfaction values.
+
+For the employed sample, we kept observations where `WORKING_STATUS == 1`, occupation belonged to the valid **ISCO major groups 0–9**, and job satisfaction was between **0 and 10**.
+
+We used `WORKING_STATUS` rather than `EMPLOYMENT_STATUS` to identify working respondents because the latter is needed to compare employment arrangements. This avoids using the same variable for two different purposes.
+
+The employed sample contains **124,769 observations**. We then excluded two observations with missing age and one with missing sex, leaving **124,766 observations** in the analysis sample. Some regression models require additional complete-case restrictions, which are explained in the Analysis section.
+
+These transformations gave us a more consistent dataset for comparing job satisfaction across groups and years.
 
 ### Spotting Mistakes and Missing Data
 
-We checked identifiers, survey-year coverage, duplicates and missing values after combining the annual files. The full dataset contains **no duplicate respondent-year combinations**, and respondent ID, survey year, household ID and region are complete.
+After combining the datasets, we checked for **missing values, duplicate records and inconsistencies**. These checks were necessary because missing or duplicated observations could affect our group comparisons and statistical results.
+
+We first checked whether each respondent had more than one record for the same survey year. We found **no duplicate respondent-year combinations**. We also confirmed that respondent ID, survey year, household ID and region were complete in the full dataset.
+
+However, some variables contained missing values:
 
 | Variable | Missing observations in full dataset |
 |---|---:|
@@ -70,21 +139,47 @@ We checked identifiers, survey-year coverage, duplicates and missing values afte
 | Occupation | 180,252 |
 | Job satisfaction | 178,161 |
 
-The high missingness in occupation and job satisfaction partly reflects the inclusion of non-employed respondents in the full dataset. Rather than imputing these central research variables, we restrict the employed sample to observations with valid occupation and job-satisfaction values. This ensures the outcomes and occupational categories being compared are observed, although exclusions may affect representativeness.
+Occupation and job satisfaction have the largest numbers of missing observations. This is partly because the full dataset includes people who are not employed, for whom these questions may not apply.
+
+We considered how to handle these missing values. Since **occupation and job satisfaction are central to our research questions**, we decided not to estimate or replace missing responses through **imputation**. Instead, we restricted the employed sample to respondents with valid values for both variables.
+
+This approach ensures that our comparisons use observed responses rather than estimated values. However, excluding observations can introduce **selection bias** if respondents with missing information differ systematically from those included in the sample.
+
+We therefore use the cleaned sample for the main analysis while recognising that it may not fully represent every employed person in Switzerland.
 
 ### Listing Anomalies and Outliers
 
-We checked the survey's special missing-value codes and the permitted ranges of key variables. **Valid job-satisfaction scores from 0 to 10 were retained**, including low and high responses; these are meaningful values rather than outliers to remove. The Armed Forces occupation group (ISCO 0) is present but small (**131 observations** in the demographic analysis sample), so it is excluded from the civilian-occupation regressions and some comparative figures. We also checked for duplicate respondent-year records and found none.
+We also checked for unusual values and possible errors in the dataset. This included reviewing the permitted ranges of variables, special missing-value codes and duplicate records.
+
+For job satisfaction, the valid range is **0–10**. Although responses of 0 or 10 are at the extremes of the scale, they are still valid survey answers. We therefore kept them rather than treating them as outliers.
+
+For occupation, we used the valid **ISCO major groups 0–9**. We noticed that the **Armed Forces group (ISCO 0)** was much smaller than the other occupational groups, with only **131 observations** in the demographic analysis sample.
+
+Because this group is small and differs from civilian occupations, we excluded it from the civilian-occupation regressions and some comparative visualisations. However, we retained it in the broader prepared dataset rather than deleting those observations entirely.
+
+These checks helped us avoid removing valid information while identifying groups that require more careful interpretation.
 
 ### Survey Weights and Comparability
 
-The SHP provides annual individual cross-sectional survey weights for all 21 analysed years. We matched these to the employed sample by respondent ID and year. **121,547 of 124,769 observations (97.42%)** have positive weights; **3,222** have zero or negative weight codes and were excluded from weighted calculations.
+Since the SHP is a survey, we also considered whether differences in the sample across years could affect our results. The dataset provides **annual individual cross-sectional survey weights**, which can help account for differences in respondents' representation in the survey.
+
+We matched the weights to the employed sample using respondent ID and survey year. Of the **124,769 employed observations**, **121,547 (97.42%)** had positive weights. The remaining **3,222 observations** had zero or negative weight codes and were excluded from the weighted calculations.
+
+To examine whether weighting affected our results, we compared the **weighted and unweighted average job satisfaction** in 2004 and 2024.
 
 | Annual mean job satisfaction | 2004 | 2024 | Change |
 |---|---:|---:|---:|
-| Unweighted | 8.212 | 7.815 | −0.397 |
-| Weighted | 8.207 | 7.711 | −0.496 |
+| Unweighted | 8.212 | 7.815 | -0.397 |
+| Weighted | 8.207 | 7.711 | -0.496 |
 
-Both comparisons indicate a decline over the period. We retain unweighted results for the main exploratory analysis and use weighted annual means as a robustness comparison. The weights were not adjusted specifically for the employed subgroup, and these calculations do not implement the full complex survey design. Similarly, repeated observations of the same respondents require care in formal statistical testing; the preliminary regressions use respondent-clustered standard errors.
+Both approaches show a decline in average job satisfaction between 2004 and 2024. The weighted comparison shows a slightly larger decrease, suggesting that sample composition and survey weights can affect the estimated trend.
 
-The complete data preparation and validation code is retained in `01_data_preparation.ipynb`; this update report presents the essential decisions and checks rather than reproducing every processing step.
+For our main **exploratory data analysis**, we use unweighted results because our initial aim is to describe patterns within the observed sample. We use the weighted annual averages as a **robustness check** to see whether the overall direction changes when survey weights are applied.
+
+However, the weights were not adjusted specifically for the employed subgroup, and our calculations do not fully account for the SHP's **complex survey design**. We therefore avoid treating the weighted results as fully representative population estimates.
+
+We also account for repeated observations of the same respondents in the preliminary regression analysis by using **respondent-clustered standard errors**.
+
+The complete data preparation and validation code is available in `01_data_preparation.ipynb`. In this report, we focus on the main cleaning decisions, checks and their implications for our analysis.
+
+With the data prepared and the main limitations identified, the next section uses **exploratory data analysis (EDA)** to examine the distribution of job satisfaction, compare groups and investigate changes over time before applying formal statistical tests.
